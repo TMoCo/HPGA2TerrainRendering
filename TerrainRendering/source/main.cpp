@@ -9,10 +9,11 @@
 #include <cstdlib> // EXIT_SUCCES & EXIT_FAILURE macros
 
 // include the application definition
-#include <DuckApplication.h>
+#include <TerrainApplication.h>
+#include <Terrain.h>
 
 int main() {
-    DuckApplication app;
+    TerrainApplication app;
 
     try {
         app.run();

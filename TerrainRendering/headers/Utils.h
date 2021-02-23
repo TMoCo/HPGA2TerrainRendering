@@ -10,6 +10,7 @@
 #include <vector> // vector container
 #include <string> // string class
 #include <optional> // optional wrapper
+#include <ios> // streamsize
 
 // reporting and propagating exceptions
 #include <iostream> 
@@ -30,17 +31,20 @@
 const uint32_t WIDTH  = 800;
 const uint32_t HEIGHT = 600;
 
+const std::streamsize MAX_SIZE = 1048;
+
 // strings for the vulkan instance
-const std::string APP_NAME    = "Basic application";
+const std::string APP_NAME    = "Terrain rendering";
 const std::string ENGINE_NAME = "No Engine";
 
 // paths to the model and texture
-const std::string MODEL_PATH   = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A1\\HPGA1VulkanTutorial\\phongShading\\assets\\mallard.obj";
-const std::string TEXTURE_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A1\\HPGA1VulkanTutorial\\phongShading\\assets\\mallard.jpg";
+const std::string MODEL_PATH   = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\plane.obj";
+const std::string TEXTURE_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\plane.jpg";
+const std::string TERRAIN_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\HeightMap.ppm";
 
 // paths to the fragment and vertex shaders used
-const std::string SHADER_VERT_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A1\\HPGA1VulkanTutorial\\phongShading\\source\\shaders\\vert.spv";
-const std::string SHADER_FRAG_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A1\\HPGA1VulkanTutorial\\phongShading\\source\\shaders\\frag.spv";
+const std::string SHADER_VERT_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\source\\shaders\\vert.spv";
+const std::string SHADER_FRAG_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\source\\shaders\\frag.spv";
 
 // validation layers for debugging
 const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
@@ -64,11 +68,11 @@ const glm::vec3 LIGHT_POS(0.0f, -30.0f, 50.0f);
 //
 //////////////////////
 
-//#define NDEBUG // uncomment to remove validation layers and stop debug
-#ifdef NDEBUG
-const bool enableValidationLayers = false;
-#else
+//#define DEBUG // uncomment to remove validation layers and stop debug
+#ifdef DEBUG
 const bool enableValidationLayers = true;
+#else
+const bool enableValidationLayers = false;
 #endif
 
 //#define VERBOSE

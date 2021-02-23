@@ -78,13 +78,13 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>C:\Users\Tommy\Documents\COMP4\5822HighPerformanceGraphics\A1\HPGA1VulkanTutorial\phongShading\headers;$(IncludePath)</IncludePath>
-    <SourcePath>C:\Users\Tommy\Documents\COMP4\5822HighPerformanceGraphics\A1\HPGA1VulkanTutorial\phongShading\source;$(SourcePath)</SourcePath>
+    <IncludePath>C:\Users\Tommy\Documents\COMP4\5822HighPerformanceGraphics\A2\HPGA2TerrainRendering\TerrainRendering\headers;$(IncludePath)</IncludePath>
+    <SourcePath>C:\Users\Tommy\Documents\COMP4\5822HighPerformanceGraphics\A2\HPGA2TerrainRendering\TerrainRendering\source;$(SourcePath)</SourcePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>C:\Users\Tommy\Documents\COMP4\5822HighPerformanceGraphics\A1\HPGA1VulkanTutorial\phongShading\headers;$(IncludePath)</IncludePath>
-    <SourcePath>C:\Users\Tommy\Documents\COMP4\5822HighPerformanceGraphics\A1\HPGA1VulkanTutorial\phongShading\source;$(SourcePath)</SourcePath>
+    <IncludePath>C:\Users\Tommy\Documents\COMP4\5822HighPerformanceGraphics\A2\HPGA2TerrainRendering\TerrainRendering\headers;$(IncludePath)</IncludePath>
+    <SourcePath>C:\Users\Tommy\Documents\COMP4\5822HighPerformanceGraphics\A2\HPGA2TerrainRendering\TerrainRendering\source;$(SourcePath)</SourcePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -160,10 +160,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="source\DepthResource.cpp" />
-    <ClCompile Include="source\DuckApplication.cpp" />
+    <ClCompile Include="source\TerrainApplication.cpp" />
     <ClCompile Include="source\FramebufferData.cpp" />
     <ClCompile Include="source\main.cpp" />
     <ClCompile Include="source\Model.cpp" />
+    <ClCompile Include="source\Terrain.cpp" />
     <ClCompile Include="source\Texture.cpp" />
     <ClCompile Include="source\Utils.cpp" />
     <ClCompile Include="source\VulkanSetup.cpp" />
@@ -171,10 +172,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="headers\DepthResource.h" />
-    <ClInclude Include="headers\DuckApplication.h" />
+    <ClInclude Include="headers\TerrainApplication.h" />
     <ClInclude Include="headers\FramebufferData.h" />
     <ClInclude Include="headers\Model.h" />
     <ClInclude Include="headers\Shader.h" />
+    <ClInclude Include="headers\Terrain.h" />
     <ClInclude Include="headers\Texture.h" />
     <ClInclude Include="headers\Utils.h" />
     <ClInclude Include="headers\Vertex.h" />

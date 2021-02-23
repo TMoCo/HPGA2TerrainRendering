@@ -5,7 +5,7 @@
 #ifndef MODEL_H
 #define MODEL_H
 
-#include "Vertex.h" // vertex struct
+#include <Vertex.h> // vertex struct
 
 #include <string> // string for model path
 #include <vector> // vector container
@@ -21,6 +21,8 @@ public:
     //
     // object data
     //
+
+    glm::vec3 centreOfGravity;
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;

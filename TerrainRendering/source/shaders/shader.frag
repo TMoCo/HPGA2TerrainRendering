@@ -50,6 +50,7 @@ struct Material {
 
 void main()
 {
+    /*
     if (ubo.uvToRgb == 1) {
         outColor = vec4(fragTexCoord, 0.0, 1.0);
     }
@@ -86,5 +87,8 @@ void main()
         // vector multiplication is element wise <3
         outColor = vec4((ambient + diffuse + specular) * color, 1.0f);
         //outColor = fragMaterial;
+
     }
+    */
+    outColor = vec4(fragNormal, 1.0f);
 }

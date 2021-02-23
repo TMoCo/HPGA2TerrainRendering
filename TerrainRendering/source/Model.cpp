@@ -45,11 +45,14 @@ void Model::loadModel(const std::string& path) {
                 attrib.texcoords[2 * index.texcoord_index + 0],
                 1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
             };
-
+            // add to the centre of gravity
+            centreOfGravity += vertex.pos;
 
             vertices.push_back(vertex);
             indices.push_back(indices.size());
         }
     }
+    // now compute the centre by dividing by the number of vertices in the model
+    centreOfGravity /= (float)vertices.size();
 }
 
