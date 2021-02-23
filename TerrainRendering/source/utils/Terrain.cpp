@@ -3,8 +3,8 @@
 //
 #include <fstream>
 
-#include <Utils.h> // MAX_LINE
-#include <Terrain.h>
+#include <utils/Utils.h> // MAX_LINE
+#include <utils/Terrain.h>
 
 void Terrain::loadTerrain(const std::string& path) {
 	// a vector of ints for the height data
@@ -98,6 +98,7 @@ void Terrain::loadTerrain(const std::string& path) {
 	}
 
 #ifdef DEBUG
+	/*
 	for (const uint32_t& index : indices) {
 		std::cout << index << '\n';
 	}
@@ -105,6 +106,7 @@ void Terrain::loadTerrain(const std::string& path) {
 	for (const Vertex& vertex : vertices) {
 		std::cout << vertex.pos.x << ' ' << vertex.pos.y << ' ' << vertex.pos.z << '\n';
 	}
+	*/
 #endif // DEBUG
 }
 

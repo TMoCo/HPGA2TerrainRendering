@@ -5,7 +5,7 @@
 #ifndef MODEL_H
 #define MODEL_H
 
-#include <Vertex.h> // vertex struct
+#include <utils/Vertex.h> // vertex struct
 
 #include <string> // string for model path
 #include <vector> // vector container

@@ -1,4 +1,8 @@
-#include <Utils.h>
+//
+// the utils namespace definition
+//
+
+#include <utils/Utils.h>
 
 //
 // QueueFamilyIndices struct

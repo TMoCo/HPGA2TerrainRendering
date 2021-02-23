@@ -5,7 +5,7 @@
 #ifndef SHADER_H
 #define SHADER_H
 
-#include "VulkanSetup.h" // for referencing the device
+#include <vulkan_help/VulkanSetup.h> // for referencing the device
 
 #include <vector> // vector container
 #include <string> // string class

@@ -2,9 +2,9 @@
 // Texture class definition
 //
 
-#include <Texture.h>
+#include <utils/Texture.h>
 
-#include <Utils.h> // utils namespace
+#include <utils/Utils.h> // utils namespace
 
 // image loading
 #define STB_IMAGE_IMPLEMENTATION

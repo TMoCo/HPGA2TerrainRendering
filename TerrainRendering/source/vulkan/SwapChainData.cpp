@@ -2,9 +2,10 @@
 // Definition of the SwapChain class
 //
 
-#include <SwapChainData.h>// include the class declaration
-#include <Shader.h>// include the shader struct 
-#include <Vertex.h>
+#include <utils/Vertex.h>
+
+#include <vulkan_help/SwapChainData.h>// include the class declaration
+#include <vulkan_help/Shader.h>// include the shader struct 
 
 // exceptions
 #include <iostream>
@@ -28,7 +29,7 @@ void SwapChainData::initSwapChainData(VulkanSetup* pVkSetup, VkDescriptorSetLayo
     // and the ImGUI render pass
     createImGuiRenderPass();
     // followed by the graphics pipeline
-    createGraphicsPipeline(descriptorSetLayout);
+    createTerrainPipeline(descriptorSetLayout);
 }
 
 void SwapChainData::cleanupSwapChainData() {
@@ -411,7 +412,7 @@ void SwapChainData::createImGuiRenderPass() {
 //
 //////////////////////
 
-void SwapChainData::createGraphicsPipeline(VkDescriptorSetLayout* descriptorSetLayout) {
+void SwapChainData::createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLayout) {
     // std::vector<char> 
     auto vertShaderCode = Shader::readFile(SHADER_VERT_PATH);
     auto fragShaderCode = Shader::readFile(SHADER_FRAG_PATH);
@@ -599,3 +600,8 @@ void SwapChainData::createGraphicsPipeline(VkDescriptorSetLayout* descriptorSetL
     vkDestroyShaderModule(vkSetup->device, fragShaderModule, nullptr);
     vkDestroyShaderModule(vkSetup->device, vertShaderModule, nullptr);
 }
+
+void SwapChainData::createAirplanePipeline(VkDescriptorSetLayout* descriptorSetLayout) {
+
+}
+

@@ -5,7 +5,7 @@
 #ifndef DEPTH_RESOURCE_H
 #define DEPTH_RESOURCE_H
 
-#include "VulkanSetup.h" // for referencing the device
+#include <vulkan_help/VulkanSetup.h> // for referencing the device
 
 #include <vulkan/vulkan_core.h>
 

@@ -159,29 +159,33 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="source\DepthResource.cpp" />
-    <ClCompile Include="source\TerrainApplication.cpp" />
-    <ClCompile Include="source\FramebufferData.cpp" />
-    <ClCompile Include="source\main.cpp" />
-    <ClCompile Include="source\Model.cpp" />
-    <ClCompile Include="source\Terrain.cpp" />
-    <ClCompile Include="source\Texture.cpp" />
-    <ClCompile Include="source\Utils.cpp" />
-    <ClCompile Include="source\VulkanSetup.cpp" />
-    <ClCompile Include="source\SwapChainData.cpp" />
+    <ClCompile Include="source\app\Airplane.cpp" />
+    <ClCompile Include="source\utils\Camera.cpp" />
+    <ClCompile Include="source\vulkan\DepthResource.cpp" />
+    <ClCompile Include="source\app\TerrainApplication.cpp" />
+    <ClCompile Include="source\vulkan\FramebufferData.cpp" />
+    <ClCompile Include="source\app\main.cpp" />
+    <ClCompile Include="source\utils\Model.cpp" />
+    <ClCompile Include="source\utils\Terrain.cpp" />
+    <ClCompile Include="source\utils\Texture.cpp" />
+    <ClCompile Include="source\utils\Utils.cpp" />
+    <ClCompile Include="source\vulkan\VulkanSetup.cpp" />
+    <ClCompile Include="source\vulkan\SwapChainData.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="headers\DepthResource.h" />
+    <ClInclude Include="headers\Airplane.h" />
+    <ClInclude Include="headers\utils\Camera.h" />
+    <ClInclude Include="headers\vulkan_help\DepthResource.h" />
     <ClInclude Include="headers\TerrainApplication.h" />
-    <ClInclude Include="headers\FramebufferData.h" />
-    <ClInclude Include="headers\Model.h" />
-    <ClInclude Include="headers\Shader.h" />
-    <ClInclude Include="headers\Terrain.h" />
-    <ClInclude Include="headers\Texture.h" />
-    <ClInclude Include="headers\Utils.h" />
-    <ClInclude Include="headers\Vertex.h" />
-    <ClInclude Include="headers\VulkanSetup.h" />
-    <ClInclude Include="headers\SwapChainData.h" />
+    <ClInclude Include="headers\vulkan_help\FramebufferData.h" />
+    <ClInclude Include="headers\utils\Model.h" />
+    <ClInclude Include="headers\vulkan_help\Shader.h" />
+    <ClInclude Include="headers\utils\Terrain.h" />
+    <ClInclude Include="headers\utils\Texture.h" />
+    <ClInclude Include="headers\utils\Utils.h" />
+    <ClInclude Include="headers\utils\Vertex.h" />
+    <ClInclude Include="headers\vulkan_help\VulkanSetup.h" />
+    <ClInclude Include="headers\vulkan_help\SwapChainData.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="source\shaders\compile.bat" />

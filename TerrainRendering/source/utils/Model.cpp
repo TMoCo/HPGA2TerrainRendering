@@ -3,7 +3,7 @@
 //
 
 #include <string> // string class
-#include <Model.h> // model class declaration
+#include <utils/Model.h> // model class declaration
 
 // model loading
 #define TINYOBJLOADER_IMPLEMENTATION

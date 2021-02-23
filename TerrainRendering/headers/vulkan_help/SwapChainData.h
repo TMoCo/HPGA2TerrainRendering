@@ -7,8 +7,8 @@
 #ifndef VULKAN_SWAP_CHAIN_H
 #define VULKAN_SWAP_CHAIN_H
 
-#include "VulkanSetup.h" // for referencing the device
-#include "DepthResource.h" // for referencing the depth resource
+#include <vulkan_help/VulkanSetup.h> // for referencing the device
+#include <vulkan_help/DepthResource.h> // for referencing the depth resource
 
 #include <vector> // vector container
 
@@ -66,7 +66,9 @@ private:
     // Pipeline creation
     //
 
-    void createGraphicsPipeline(VkDescriptorSetLayout* descriptorSetLayout);
+    void createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLayout);
+    
+    void createAirplanePipeline(VkDescriptorSetLayout* descriptorSetLayout);
 
     //
     // Command pool creation

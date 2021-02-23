@@ -10,7 +10,6 @@
 
 // include the application definition
 #include <TerrainApplication.h>
-#include <Terrain.h>
 
 int main() {
     TerrainApplication app;

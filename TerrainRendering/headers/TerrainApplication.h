@@ -5,13 +5,16 @@
 #ifndef TERRAIN_APPLICATION_H
 #define TERRAIN_APPLICATION_H
 
-#include <Texture.h> // the texture class
-#include <Model.h> // the model class
-#include <Vertex.h> // the vertex struct
-#include <VulkanSetup.h> // include the vulkan setup class
-#include <SwapChainData.h> // the swap chain class
-#include <FramebufferData.h> // the framebuffer data class
-#include <Terrain.h>
+#include <Airplane.h>
+
+#include <utils/Texture.h> // the texture class
+#include <utils/Model.h> // the model class
+#include <utils/Vertex.h> // the vertex struct
+#include <utils/Terrain.h> // terrain class
+
+#include <vulkan_help/VulkanSetup.h> // include the vulkan setup class
+#include <vulkan_help/SwapChainData.h> // the swap chain class
+#include <vulkan_help/FramebufferData.h> // the framebuffer data class
 
 // glfw window library
 #define GLFW_INCLUDE_VULKAN
@@ -23,14 +26,11 @@
 // reporting and propagating exceptions
 #include <iostream> 
 #include <stdexcept>
-
 // very handy containers of objects
 #include <vector>
 #include <array>
-// string for file name
-#include <string>
-// value wrapper
-#include <optional>
+#include <string> // string for file name
+#include <chrono> // time 
 
 //
 // Helper structs
@@ -72,7 +72,10 @@ private:
 
     void uploadFonts();
 
-    void renderUI();
+    //--------------------------------------------------------------------//
+    // functions to initiate the private members
+    // init glfw window
+    void initWindow();
 
     //--------------------------------------------------------------------//
 
@@ -82,7 +85,11 @@ private:
 
     void createDescriptorSets();
 
+    //--------------------------------------------------------------------//
+
     void createUniformBuffers();
+
+    void updateUniformBuffer(uint32_t currentImage);
 
     //--------------------------------------------------------------------//
 
@@ -102,6 +109,8 @@ private:
 
     void recreateVulkanData();
 
+    static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
+
     //--------------------------------------------------------------------//
 
     void createSyncObjects();
@@ -111,9 +120,13 @@ private:
     // the main loop
     void mainLoop();
 
+    //--------------------------------------------------------------------//
+    
     void drawFrame();
 
-    void updateUniformBuffer(uint32_t currentImage);
+    void renderUI();
+
+    int processKeyInput();
 
     //--------------------------------------------------------------------//
 
@@ -121,12 +134,6 @@ private:
     void cleanup();
 
     //--------------------------------------------------------------------//
-
-    // functions to initiate the private members
-    // init glfw window
-    void initWindow();
-
-    static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 
 // private members
 private:
@@ -145,11 +152,8 @@ private:
     // the terrain object
     Terrain terrain;
 
-    // object data
-    Model planeModel;
-
-    // texture data
-    Texture planeTexture;
+    // the airplane class
+    Airplane airplane;
 
     // vertex buffer
     VkBuffer vertexBuffer;
@@ -162,26 +166,6 @@ private:
     // uniform buffers
     std::vector<VkBuffer> uniformBuffers;
     std::vector<VkDeviceMemory> uniformBuffersMemory;
-
-
-    // Variables changed by the UI
-    float translateX = 0.0f;
-    float translateY = 0.0f;
-    float translateZ = 0.0f;
-
-    float rotateX = 0.0f;
-    float rotateY = 0.0f;
-    float rotateZ = 0.0f;
-
-    float zoom = 1.0f;
-
-    bool centreModel = false;
-
-    bool enableDepthTest = true;
-    bool uvToRgb = false;
-    bool enableAlbedo = true;
-    bool enableDiffuse = true;
-    bool enableSpecular = true;
 
 
     // layout used to specify fragment uniforms, still required even if not used
@@ -209,12 +193,36 @@ private:
     std::vector<VkFence> imagesInFlight;
 
 
+    // Variables changed by the UI
+    float translateX = 0.0f;
+    float translateY = 0.0f;
+    float translateZ = 0.0f;
+
+    float rotateX = 0.0f;
+    float rotateY = 0.0f;
+    float rotateZ = 0.0f;
+
+    float zoom = 1.0f;
+
+    bool centreModel = false;
+
+    bool enableDepthTest = true;
+    bool uvToRgb = false;
+    bool enableAlbedo = true;
+    bool enableDiffuse = true;
+    bool enableSpecular = true;
+
+    bool shouldExit = false;
+    bool framebufferResized = false;
+
+    // timer
+    std::chrono::steady_clock::time_point prevTime;
+    float deltaTime;
+
     // keep track of the current frame
     size_t currentFrame = 0;
     // the index of the image retrieved from the swap chain
     uint32_t imageIndex;
-    // resize window flag
-    bool framebufferResized = false;
 };
 
 #endif

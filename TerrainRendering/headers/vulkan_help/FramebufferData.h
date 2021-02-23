@@ -5,9 +5,9 @@
 #ifndef FRAMEBUFFER_DATA_H
 #define FRAMEBUFFER_DATA_H
 
-#include <VulkanSetup.h> // for referencing the device
-#include <DepthResource.h> // for referencing the depth resource
-#include <SwapChainData.h> // for referencing the swap chain
+#include <vulkan_help/VulkanSetup.h> // for referencing the device
+#include <vulkan_help/DepthResource.h> // for referencing the depth resource
+#include <vulkan_help/SwapChainData.h> // for referencing the swap chain
 
 #include <vulkan/vulkan_core.h>
 

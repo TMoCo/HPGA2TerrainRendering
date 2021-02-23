@@ -2,7 +2,7 @@
 #include <TerrainApplication.h>
 
 // include constants
-#include <Utils.h>
+#include <utils/Utils.h>
 
 // transformations
 #define GLM_FORCE_RADIANS
@@ -11,8 +11,10 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-// time 
-#include <chrono>
+#ifdef DEBUG
+#include <glm/gtx/string_cast.hpp>
+#endif // DEBUG
+
 
 // min, max
 #include <algorithm>
@@ -91,13 +93,9 @@ void TerrainApplication::initVulkan() {
     // STEP 4: Create the application's data (models, textures...)
     //
 
-    // textures can go in a separate class
-    planeTexture.createTexture(&vkSetup, TEXTURE_PATH, renderCommandPool);
-
     // model can go in a separate class
-    planeModel.loadModel(MODEL_PATH);
-
-    // also load in terrain
+    airplane.createPlane(&vkSetup, renderCommandPool, glm::vec3(0.0f, 255.0f, 500.0f));
+    // glm::lookAt(glm::vec3(0.0f, 255.0f, 500.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
     terrain.loadTerrain(TERRAIN_PATH);
 
     //
@@ -195,6 +193,8 @@ void TerrainApplication::initWindow() {
 //////////////////////
 
 void TerrainApplication::createDescriptorSetLayout() {
+    // need two descriptor set layouts for two pipelines
+
     // provide details about every descriptor binding used in the shaders
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
     uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // this is a uniform descriptor
@@ -224,6 +224,7 @@ void TerrainApplication::createDescriptorSetLayout() {
 
     if (vkCreateDescriptorSetLayout(vkSetup.device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor set layout!");
+   
     }
 }
 
@@ -297,8 +298,8 @@ void TerrainApplication::createDescriptorSets() {
         // bind the actual image and sampler to the descriptors in the descriptor set
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = planeTexture.textureImageView;
-        imageInfo.sampler = planeTexture.textureSampler;
+        imageInfo.imageView = airplane.texture.textureImageView;
+        imageInfo.sampler = airplane.texture.textureSampler;
 
         // the struct configuring the descriptor set
         std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
@@ -354,15 +355,10 @@ void TerrainApplication::createUniformBuffers() {
 }
 
 void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
-    // compute the time elapsed since rendering began
-    static auto startTime = std::chrono::high_resolution_clock::now();
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
     UniformBufferObject ubo{};
 
     // translate the model to start in view of the camera
-    //ubo.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -30.0f, -85.0f));
+    //ubo.terrainModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -30.0f, -85.0f));
     ubo.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -250.0f));
     // add the user translation
     ubo.model = glm::translate(ubo.model, glm::vec3(translateX, translateY, translateZ));
@@ -375,7 +371,6 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
     glm::quat rotation = glm::quat(glm::vec3(glm::radians(rotateX), glm::radians(rotateY), glm::radians(rotateZ)));
     
     if (centreModel) {
-        std::cout << "centering " << terrain.centreOfGravity.x << ' ' << terrain.centreOfGravity.y << ' ' << terrain.centreOfGravity.z << '\n';
         ubo.model = glm::translate(ubo.model, -terrain.centreOfGravity);
     }
 
@@ -389,12 +384,23 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
 
     // make the camera view the geometry from above at a 45° angle (eye pos, subject pos, up direction)
     //ubo.view = glm::mat4(1.0f); 
-    ubo.view = glm::lookAt(glm::vec3(0.0f, 255.0f, 500.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+    //ubo.view = glm::lookAt(glm::vec3(0.0f, 255.0f, 500.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+    ubo.view = airplane.camera.getViewMatrix();
+#ifdef DEBUG
+    std::cout << "\n\n";
+    std::cout << glm::to_string(ubo.view) << '\n';
+    std::cout << glm::to_string(airplane.camera.getViewMatrix()) << '\n';
+    std::cout << glm::to_string(airplane.camera.position) << '\n';
+    std::cout << glm::to_string(airplane.camera.front) << '\n';
+    std::cout << glm::to_string(airplane.camera.up) << '\n';
+    std::cout << glm::to_string(airplane.camera.right) << '\n';
+#endif // DEBUG
+
     
     // proect the scene with a 45° fov, use current swap chain extent to compute aspect ratio, near, far
     ubo.proj = glm::perspective(glm::radians(45.0f), swapChainData.extent.width / (float)swapChainData.extent.height, 0.1f, 1000.0f);
     
-    // designed for openGL, so y coordinates are inverted
+    // designed for openGL, so y coordinates are inverted. Vulkan origin is at top left vs OpenGL at bot left
     ubo.proj[1][1] *= -1;
 
     // set for mapping to texture
@@ -703,18 +709,29 @@ void TerrainApplication::createSyncObjects() {
 //////////////////////
 
 void TerrainApplication::mainLoop() {
+    // compute the time elapsed since rendering began
+    static auto startTime = std::chrono::high_resolution_clock::now();
+    prevTime = std::chrono::high_resolution_clock::now();
     // loop keeps window open
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
-
+        // get the time before the drawing frame
+        deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(std::chrono::high_resolution_clock::now() - prevTime).count();
+        prevTime = std::chrono::high_resolution_clock::now();
+        // process user input, returns true when we want to exit the application
+        if (processKeyInput() == 0)
+            break;
+        // draw the frame
         drawFrame();
+        // update the plane's position
+        airplane.updatePosition(deltaTime);
     }
     vkDeviceWaitIdle(vkSetup.device);
 }
 
 //////////////////////
 //
-// Frame drawing and GUI 
+// Frame drawing, GUI setting and UI
 //
 //////////////////////
 
@@ -889,6 +906,28 @@ void TerrainApplication::renderUI() {
     vkEndCommandBuffer(imGuiCommandBuffers[imageIndex]);
 }
 
+int TerrainApplication::processKeyInput() {
+    // special case return 0 to exit the program
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE))
+        return 0;
+
+    if (glfwGetKey(window, GLFW_KEY_W))
+        airplane.camera.processInput(CameraMovement::PitchUp, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_S))
+        airplane.camera.processInput(CameraMovement::PitchDown, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_A))
+        airplane.camera.processInput(CameraMovement::RollLeft, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_D))
+        airplane.camera.processInput(CameraMovement::RollRight, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_Q))
+        airplane.camera.processInput(CameraMovement::YawLeft, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_E))
+        airplane.camera.processInput(CameraMovement::YawRight, deltaTime);
+
+    // other wise just return true
+    return 1;
+}
+
 //////////////////////
 //
 // Cleanup
@@ -921,7 +960,7 @@ void TerrainApplication::cleanup() {
     vkDestroyDescriptorPool(vkSetup.device, imGuiDescriptorPool, nullptr);
     vkDestroyDescriptorPool(vkSetup.device, descriptorPool, nullptr);
 
-    planeTexture.cleanupTexture();
+    airplane.texture.cleanupTexture();
 
     // destroy the descriptor layout
     vkDestroyDescriptorSetLayout(vkSetup.device, descriptorSetLayout, nullptr);

@@ -27,20 +27,39 @@
 //
 //////////////////////
 
+//
+// App constants
+//
+
 // constants for window dimensions
 const uint32_t WIDTH  = 800;
 const uint32_t HEIGHT = 600;
-
-const std::streamsize MAX_SIZE = 1048;
 
 // strings for the vulkan instance
 const std::string APP_NAME    = "Terrain rendering";
 const std::string ENGINE_NAME = "No Engine";
 
+// max size for reading a line 
+const std::streamsize MAX_SIZE = 1048;
+
+// the camera angle change speed
+const float CAMERA_ANGLE = 20.0f;
+
+// world axes
+const glm::vec3 WORLD_RIGHT = glm::vec3(1.0f, 0.0f, 0.0f);
+const glm::vec3 WORLD_UP    = glm::vec3(0.0f, 1.0f, 0.0f);
+const glm::vec3 WORLD_FRONT = glm::vec3(0.0f, 0.0f, 1.0f);
+
 // paths to the model and texture
 const std::string MODEL_PATH   = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\plane.obj";
 const std::string TEXTURE_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\plane.jpg";
 const std::string TERRAIN_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\HeightMap.ppm";
+
+//
+// constants for vulkan
+//
+
+const size_t N_DESCRIPTOR_LAYOUTS = 2;
 
 // paths to the fragment and vertex shaders used
 const std::string SHADER_VERT_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\source\\shaders\\vert.spv";
@@ -60,7 +79,6 @@ const size_t MAX_FRAMES_IN_FLIGHT = 2;
 // the ImGUI number of descriptor pools
 const uint32_t IMGUI_POOL_NUM = 1000;
 
-const glm::vec3 LIGHT_POS(0.0f, -30.0f, 50.0f);
 
 //////////////////////
 //
@@ -81,6 +99,22 @@ const bool enableVerboseValidation = true;
 #else
 const bool enableVerboseValidation = false;
 #endif
+
+//////////////////////
+//
+// Utility enums
+//
+//////////////////////
+
+// an enum that abstracts away camera input processing
+enum class CameraMovement : unsigned char {
+    PitchUp   = 0x10,
+    PitchDown = 0x20,
+    RollLeft  = 0x40,
+    RollRight = 0x50,
+    YawLeft   = 0x70,
+    YawRight  = 0x80
+};
 
 //////////////////////
 //

@@ -8,8 +8,8 @@
 #include <string>
 #include <vector>
 
-#include <Model.h>
-#include <Vertex.h>
+#include <utils/Model.h>
+#include <utils/Vertex.h>
 
 // inherits from Model for some member variables
 class Terrain : public Model {

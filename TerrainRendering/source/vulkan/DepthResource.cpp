@@ -2,7 +2,7 @@
 // Definition of the DepthResource class
 //
 
-#include <DepthResource.h>
+#include <vulkan_help/DepthResource.h>
 
 // reporting and propagating exceptions
 #include <iostream> 
