@@ -29,13 +29,14 @@ void SwapChainData::initSwapChainData(VulkanSetup* pVkSetup, VkDescriptorSetLayo
     // and the ImGUI render pass
     createImGuiRenderPass();
     // followed by the graphics pipeline
-    createTerrainPipeline(descriptorSetLayout);
+    createTerrainPipeline(&descriptorSetLayout[0]);
+    createAirplanePipeline(&descriptorSetLayout[1]);
 }
 
 void SwapChainData::cleanupSwapChainData() {
     // destroy pipeline and related data
-    vkDestroyPipeline(vkSetup->device, graphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(vkSetup->device, graphicsPipelineLayout, nullptr);
+    vkDestroyPipeline(vkSetup->device, terrainPipeline, nullptr);
+    vkDestroyPipelineLayout(vkSetup->device, terrainPipelineLayout, nullptr);
 
     // destroy the render passes
     vkDestroyRenderPass(vkSetup->device, renderPass, nullptr);
@@ -567,7 +568,7 @@ void SwapChainData::createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLa
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = descriptorSetLayout;
 
-    if (vkCreatePipelineLayout(vkSetup->device, &pipelineLayoutInfo, nullptr, &graphicsPipelineLayout) != VK_SUCCESS) {
+    if (vkCreatePipelineLayout(vkSetup->device, &pipelineLayoutInfo, nullptr, &terrainPipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
@@ -587,12 +588,12 @@ void SwapChainData::createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLa
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDepthStencilState = &depthStencil;
     // the pipeline layout is a vulkan handle rather than a struct pointer
-    pipelineInfo.layout = graphicsPipelineLayout;
+    pipelineInfo.layout = terrainPipelineLayout;
     // and a reference to the render pass
     pipelineInfo.renderPass = renderPass;
     pipelineInfo.subpass = 0; // index of desired sub pass where pipeline will be used
 
-    if (vkCreateGraphicsPipelines(vkSetup->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(vkSetup->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &terrainPipeline) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
     }
 
@@ -708,7 +709,7 @@ void SwapChainData::createAirplanePipeline(VkDescriptorSetLayout* descriptorSetL
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = descriptorSetLayout;
 
-    if (vkCreatePipelineLayout(vkSetup->device, &pipelineLayoutInfo, nullptr, &graphicsPipelineLayout) != VK_SUCCESS) {
+    if (vkCreatePipelineLayout(vkSetup->device, &pipelineLayoutInfo, nullptr, &airplanePipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
@@ -727,12 +728,12 @@ void SwapChainData::createAirplanePipeline(VkDescriptorSetLayout* descriptorSetL
     pipelineInfo.pMultisampleState = &multisampling;
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDepthStencilState = &depthStencil;
-    pipelineInfo.layout = graphicsPipelineLayout;
+    pipelineInfo.layout = airplanePipelineLayout;
     // and a reference to the render pass
     pipelineInfo.renderPass = renderPass;
     pipelineInfo.subpass = 0; // index of desired sub pass where pipeline will be used
 
-    if (vkCreateGraphicsPipelines(vkSetup->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(vkSetup->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &airplanePipeline) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
     }
 

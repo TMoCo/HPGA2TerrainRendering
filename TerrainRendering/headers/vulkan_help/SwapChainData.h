@@ -109,9 +109,13 @@ public:
     // the ImGui render pass
     VkRenderPass     imGuiRenderPass;
     // the layout of the graphics pipeline, for binding descriptor sets
-    VkPipelineLayout graphicsPipelineLayout;
+    VkPipelineLayout terrainPipelineLayout;
     // the graphics pipeline
-    VkPipeline       graphicsPipeline;
+    VkPipeline       terrainPipeline;
+
+    // pipeline for rendering the plane
+    VkPipelineLayout airplanePipelineLayout;
+    VkPipeline       airplanePipeline;
 
     //
     // Flags

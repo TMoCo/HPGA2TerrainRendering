@@ -140,37 +140,38 @@ private:
     // the window
     GLFWwindow* window;
 
+
     // the vulkan data (instance, surface, device)
-    VulkanSetup vkSetup;
-
+    VulkanSetup     vkSetup;
     // the swap chain and related data
-    SwapChainData swapChainData;
-
+    SwapChainData   swapChainData;
     // the frame buffer and related data
     FramebufferData framebufferData;
 
-    // the terrain object
-    Terrain terrain;
 
-    // the airplane class
+    // the terrain object
+    Terrain  terrain;
+    // the airplane object
     Airplane airplane;
 
-    // vertex buffer
-    BufferData _terrainVB;
 
-    // index buffer
-    BufferData _terrainIB;
+    // scene vertex buffer
+    BufferData _bVertex;
+    // scene index buffer
+    BufferData _bIndex;
+
 
     // uniform buffers
-    std::vector<BufferData> _uniformBuffers;
+    BufferData _bTerrainUniforms;
+    BufferData _bAirplaneUniforms;
 
 
-    // layout used to specify fragment uniforms, still required even if not used
-    VkDescriptorSetLayout descriptorSetLayout;
     VkDescriptorPool descriptorPool;
-    VkDescriptorPool imGuiDescriptorPool;
-    std::vector<VkDescriptorSet> descriptorSets; // descriptor set handles
-   
+    // layout used to specify fragment uniforms, still required even if not used
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+    std::vector<VkDescriptorSet> terrainDescriptorSets; // descriptor set handles
+    std::vector<VkDescriptorSet> airplaneDescriptorSets; // descriptor set handles
+    
 
     // command buffers
     VkCommandPool renderCommandPool;
@@ -201,20 +202,21 @@ private:
 
     float zoom = 1.0f;
 
-    bool centreModel = false;
-
+    bool centreModel     = false;
     bool enableDepthTest = true;
-    bool uvToRgb = false;
-    bool enableAlbedo = true;
-    bool enableDiffuse = true;
-    bool enableSpecular = true;
+    bool uvToRgb         = false;
+    bool enableAlbedo    = true;
+    bool enableDiffuse   = true;
+    bool enableSpecular  = true;
 
-    bool shouldExit = false;
+    bool shouldExit         = false;
     bool framebufferResized = false;
+
 
     // timer
     std::chrono::steady_clock::time_point prevTime;
     float deltaTime;
+
 
     // keep track of the current frame
     size_t currentFrame = 0;

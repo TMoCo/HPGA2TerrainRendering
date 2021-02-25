@@ -119,7 +119,7 @@ glm::vec3 Terrain::computeCFD(const size_t& row, const size_t& col, const std::v
 	// get the neighbouring vertices' x and z average around the desired vertex
 	glm::vec3 normal(
 		(getHeight(row, col - 1, heights) - getHeight(row, col + 1, heights)) / 2.0f,
-		1.0f,
+		255.0f,
 		(getHeight(row - 1, col, heights) - getHeight(row + 1, col, heights)) / 2.0f);
 	return normal;
 }

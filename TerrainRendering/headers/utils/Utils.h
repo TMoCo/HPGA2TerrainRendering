@@ -92,7 +92,7 @@ const uint32_t IMGUI_POOL_NUM = 1000;
 //
 //////////////////////
 
-//#define DEBUG // uncomment to remove validation layers and stop debug
+#define DEBUG // uncomment to remove validation layers and stop debug
 #ifdef DEBUG
 const bool enableValidationLayers = true;
 #else

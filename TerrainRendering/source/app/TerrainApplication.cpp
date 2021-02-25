@@ -85,7 +85,7 @@ void TerrainApplication::initVulkan() {
     //
 
     // create the swap chain
-    swapChainData.initSwapChainData(&vkSetup, &descriptorSetLayout);
+    swapChainData.initSwapChainData(&vkSetup, descriptorSetLayouts.data());
     // create the frame buffers
     framebufferData.initFramebufferData(&vkSetup, &swapChainData, renderCommandPool);
 
@@ -98,13 +98,14 @@ void TerrainApplication::initVulkan() {
     // glm::lookAt(glm::vec3(0.0f, 255.0f, 500.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
     terrain.loadTerrain(TERRAIN_PATH);
 
+    createVertexBuffer();
+    createIndexBuffer();
+
     //
     // STEP 5: create the vulkan data for accessing and using the app's data
     //
 
     // these depend on the size of the framebuffer, so create them after 
-    createVertexBuffer();
-    createIndexBuffer();
     createUniformBuffers();
     createDescriptorPool();
     createDescriptorSets();
@@ -194,37 +195,50 @@ void TerrainApplication::initWindow() {
 
 void TerrainApplication::createDescriptorSetLayout() {
     // need two descriptor set layouts for two pipelines
+    descriptorSetLayouts.resize(N_DESCRIPTOR_LAYOUTS);
 
-    // provide details about every descriptor binding used in the shaders
-    VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // this is a uniform descriptor
-    // specify binding used
-    uboLayoutBinding.binding = 0; // the first descriptor
-    uboLayoutBinding.descriptorCount = 1; // single uniform buffer object so just 1, could be used to specify a transform for each bone in a skeletal animation
-    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // in which shader stage is the descriptor going to be referenced
-    uboLayoutBinding.pImmutableSamplers = nullptr; // relevant to image sampling related descriptors
+    for (size_t i = 0; i < N_DESCRIPTOR_LAYOUTS; i++) {
+        // provide details about every descriptor binding used in the shaders
+        VkDescriptorSetLayoutBinding uboLayoutBinding{};
+        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // this is a uniform descriptor
+        // specify binding used
+        uboLayoutBinding.binding = 0; // the first descriptor
+        uboLayoutBinding.descriptorCount = 1; // single uniform buffer object so just 1, could be used to specify a transform for each bone in a skeletal animation
+        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // in which shader stage is the descriptor going to be referenced
+        uboLayoutBinding.pImmutableSamplers = nullptr; // relevant to image sampling related descriptors
 
-    // same as above but for a texture sampler rather than for uniforms
-    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // this is a sampler descriptor
-    samplerLayoutBinding.binding = 1; // the second descriptor
-    samplerLayoutBinding.descriptorCount = 1;
-    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; ;// the shader stage we wan the descriptor to be used in, ie the fragment shader stage
-    // can use the texture sampler in the vertex stage as part of a height map to deform the vertices in a grid
-    samplerLayoutBinding.pImmutableSamplers = nullptr;
+        VkDescriptorSetLayoutCreateInfo layoutInfo{};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layoutInfo.bindingCount = 1; // number of bindings
+        layoutInfo.pBindings = &uboLayoutBinding; // pointer to the bindings
 
-    // put the descriptors in an array
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
+        if (vkCreateDescriptorSetLayout(vkSetup.device, &layoutInfo, nullptr, &descriptorSetLayouts[i]) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create descriptor set layout!");
+        }
+
+        /*
+        // same as above but for a texture sampler rather than for uniforms
+        VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+        samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // this is a sampler descriptor
+        samplerLayoutBinding.binding = 1; // the second descriptor
+        samplerLayoutBinding.descriptorCount = 1;
+        samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; ;// the shader stage we wan the descriptor to be used in, ie the fragment shader stage
+        // can use the texture sampler in the vertex stage as part of a height map to deform the vertices in a grid
+        samplerLayoutBinding.pImmutableSamplers = nullptr;
+
+        // put the descriptors in an array
+        std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
     
-    // descriptor set bindings combined into a descriptor set layour object, created the same way as other vk objects by filling a struct in
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());; // number of bindings
-    layoutInfo.pBindings = bindings.data(); // pointer to the bindings
+        // descriptor set bindings combined into a descriptor set layour object, created the same way as other vk objects by filling a struct in
+        VkDescriptorSetLayoutCreateInfo layoutInfo{};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());; // number of bindings
+        layoutInfo.pBindings = bindings.data(); // pointer to the bindings
 
-    if (vkCreateDescriptorSetLayout(vkSetup.device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create descriptor set layout!");
-   
+        if (vkCreateDescriptorSetLayout(vkSetup.device, &layoutInfo, nullptr, &descriptorSetLayouts[i]) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create descriptor set layout!");
+        }
+        */
     }
 }
 
@@ -243,7 +257,7 @@ void TerrainApplication::createDescriptorPool() {
         { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, IMGUI_POOL_NUM },
         { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, IMGUI_POOL_NUM },
         { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, IMGUI_POOL_NUM },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, IMGUI_POOL_NUM + swapChainImageCount},
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, IMGUI_POOL_NUM + swapChainImageCount * N_DESCRIPTOR_LAYOUTS },
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, IMGUI_POOL_NUM },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, IMGUI_POOL_NUM },
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, IMGUI_POOL_NUM },
@@ -265,25 +279,24 @@ void TerrainApplication::createDescriptorPool() {
 }
 
 void TerrainApplication::createDescriptorSets() {
-    // create the descriptor set
-    std::vector<VkDescriptorSetLayout> layouts(swapChainData.images.size(), descriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    // specify the descriptor pool to allocate from
-    allocInfo.descriptorPool = descriptorPool;
-    // the number of descriptors to allocate
+    allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool     = descriptorPool;
     allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainData.images.size());
-    // a pointer to the descriptor layout to base them on
-    allocInfo.pSetLayouts = layouts.data();
 
-    // resize the descriptor set container to accomodate for the descriptor sets, as many as there are frames
-    descriptorSets.resize(swapChainData.images.size());
+    // terrain's descriptor sets 
+    std::vector<VkDescriptorSetLayout> terrainLayouts(swapChainData.images.size(), descriptorSetLayouts[0]);
+    allocInfo.pSetLayouts = terrainLayouts.data();
+    terrainDescriptorSets.resize(swapChainData.images.size());
+    if (vkAllocateDescriptorSets(vkSetup.device, &allocInfo, terrainDescriptorSets.data()) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor sets!");
+    }
 
-    // now attempt to create them. We don't need to explicitly clear the descriptor sets because they will be freed
-    // when the desciptor set is destroyed. The function may fail if the pool is not sufieciently large, but succeed other times 
-    // if the driver can solve the problem internally... so sometimes the driver will let us get away with an allocation
-    // outside of the limits of the desciptor pool, and other times fail! Goes without saying that this is different for every machine...
-    if (vkAllocateDescriptorSets(vkSetup.device, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
+    // airplane's descriptor sets 
+    std::vector<VkDescriptorSetLayout> airplaneLayouts(swapChainData.images.size(), descriptorSetLayouts[0]);
+    allocInfo.pSetLayouts = airplaneLayouts.data();
+    airplaneDescriptorSets.resize(swapChainData.images.size());
+    if (vkAllocateDescriptorSets(vkSetup.device, &allocInfo, airplaneDescriptorSets.data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
 
@@ -291,21 +304,41 @@ void TerrainApplication::createDescriptorSets() {
     for (size_t i = 0; i < swapChainData.images.size(); i++) {
         // the buffer and the region of it that contain the data for the descriptor
         VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = _uniformBuffers[i].buffer; // contents of buffer for image i
-        bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(UniformBufferObject); // here this is the size of the whole buffer, we can use VK_WHOLE_SIZE instead
+        bufferInfo.buffer = _uniformBuffer.buffer;           // the buffer containing the uniforms 
+        bufferInfo.offset = sizeof(UniformBufferObject) * i; // the offset to access uniforms for image i
+        bufferInfo.range  = sizeof(UniformBufferObject);     // here the size of the buffer we want to access
 
         // bind the actual image and sampler to the descriptors in the descriptor set
+        /*
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = airplane.texture.textureImageView;
-        imageInfo.sampler = airplane.texture.textureSampler;
+        imageInfo.imageView   = airplane.texture.textureImageView;
+        imageInfo.sampler     = airplane.texture.textureSampler;
+        */
 
         // the struct configuring the descriptor set
-        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+        //std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+
+        VkWriteDescriptorSet descriptorSetWrite{};
+        descriptorSetWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorSetWrite.dstSet          = terrainDescriptorSets[i];
+        descriptorSetWrite.dstBinding      = 0;
+        descriptorSetWrite.dstArrayElement = 0;
+        descriptorSetWrite.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorSetWrite.descriptorCount = 1;
+        descriptorSetWrite.pBufferInfo     = &bufferInfo;
+
+        // update according to the configuration
+        vkUpdateDescriptorSets(vkSetup.device, 1, &descriptorSetWrite, 0, nullptr);
+
+        // do the same for the airplane descriptor set
+
+
+
         // the uniform buffer
+        /*
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = descriptorSets[i]; // wich set to update
+        descriptorWrites[0].dstSet = terrainDescriptorSets[i]; // wich set to update
         descriptorWrites[0].dstBinding = 0; // uniform buffer has binding 0
         descriptorWrites[0].dstArrayElement = 0; // descriptors can be arrays, only one element so first index
         // type of descriptor again
@@ -316,11 +349,9 @@ void TerrainApplication::createDescriptorSets() {
         descriptorWrites[0].pImageInfo = nullptr; // for image data
         descriptorWrites[0].pTexelBufferView = nullptr; // desciptors refering to buffer views
 
-        /*
-        */
         // the texture sampler
         descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet = descriptorSets[i];
+        descriptorWrites[1].dstSet = terrainDescriptorSets[i];
         descriptorWrites[1].dstBinding = 1; // sampler has binding 1
         descriptorWrites[1].dstArrayElement = 0; // only one element so index 0
         // type of descriptor again
@@ -330,9 +361,10 @@ void TerrainApplication::createDescriptorSets() {
         descriptorWrites[1].pBufferInfo = nullptr; // for descriptors that use buffer data
         descriptorWrites[1].pImageInfo = &imageInfo; // for image data
         descriptorWrites[1].pTexelBufferView = nullptr; // desciptors refering to buffer views
-
-        // update according to the configuration
+        
         vkUpdateDescriptorSets(vkSetup.device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+        */
+
     }
 }
 
@@ -343,19 +375,17 @@ void TerrainApplication::createDescriptorSets() {
 //////////////////////
 
 void TerrainApplication::createUniformBuffers() {
-    // resize the uniform buffer to be as big as the swap chain, each image has its own set of uniforms
-    _uniformBuffers.resize(swapChainData.images.size());
-
     BufferCreateInfo createInfo{};
-    createInfo.size        = sizeof(UniformBufferObject);
+    createInfo.size = static_cast<VkDeviceSize>(swapChainData.images.size() * sizeof(UniformBufferObject));
     createInfo.usage       = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
     createInfo.properties  = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 
-    // loop over the images and create a uniform buffer for each
-    for (size_t i = 0; i < swapChainData.images.size(); i++) {
-        createInfo.pBufferData = &_uniformBuffers[i]; // change buffer at each iteration
-        utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
-    }
+    // a large uniform buffer containing the data for each frame buffer
+    createInfo.pBufferData = &_uniformBuffer;
+    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
+    // a second uniform buffer for the airplane's uniforms
+    createInfo.pBufferData = &_airplaneUniformBuffer;
+    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
 }
 
 void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
@@ -390,16 +420,6 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
     //ubo.view = glm::mat4(1.0f); 
     //ubo.view = glm::lookAt(glm::vec3(0.0f, 255.0f, 500.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
     ubo.view = airplane.camera.getViewMatrix();
-#ifdef DEBUG
-    std::cout << "\n\n";
-    std::cout << glm::to_string(ubo.view) << '\n';
-    std::cout << glm::to_string(airplane.camera.getViewMatrix()) << '\n';
-    std::cout << glm::to_string(airplane.camera.position) << '\n';
-    std::cout << glm::to_string(airplane.camera.front) << '\n';
-    std::cout << glm::to_string(airplane.camera.up) << '\n';
-    std::cout << glm::to_string(airplane.camera.right) << '\n';
-#endif // DEBUG
-
     
     // proect the scene with a 45° fov, use current swap chain extent to compute aspect ratio, near, far
     ubo.proj = glm::perspective(glm::radians(45.0f), swapChainData.extent.width / (float)swapChainData.extent.height, 0.1f, 1000.0f);
@@ -416,9 +436,9 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
 
     // copy the uniform buffer object into the uniform buffer
     void* data;
-    vkMapMemory(vkSetup.device, _uniformBuffers[currentImage].memory, 0, sizeof(ubo), 0, &data);
+    vkMapMemory(vkSetup.device, _uniformBuffer.memory, currentImage * sizeof(ubo), sizeof(ubo), 0, &data);
     memcpy(data, &ubo, sizeof(ubo));
-    vkUnmapMemory(vkSetup.device, _uniformBuffers[currentImage].memory);
+    vkUnmapMemory(vkSetup.device, _uniformBuffer.memory);
 }
 
 //////////////////////
@@ -508,17 +528,17 @@ void TerrainApplication::recordGeometryCommandBuffer() {
         // VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS -> render pass commands executed from secondary command buffers
 
             // bind the graphics pipeline, second param determines if the object is a graphics or compute pipeline
-        vkCmdBindPipeline(renderCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.graphicsPipeline);
+        vkCmdBindPipeline(renderCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.terrainPipeline);
 
-        VkBuffer vertexBuffers[] = { _terrainVB.buffer };
+        VkBuffer vertexBuffers[] = { _bVertex.buffer };
         VkDeviceSize offsets[] = { 0 };
         // bind the vertex buffer, can have many vertex buffers
         vkCmdBindVertexBuffers(renderCommandBuffers[i], 0, 1, vertexBuffers, offsets);
         // bind the index buffer, can only have a single index buffer 
         // params (-the nescessary cmd) bufferindex buffer, byte offset into it, type of data
-        vkCmdBindIndexBuffer(renderCommandBuffers[i], _terrainIB.buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(renderCommandBuffers[i], _bIndex.buffer, 0, VK_INDEX_TYPE_UINT32);
         // bind the uniform descriptor sets
-        vkCmdBindDescriptorSets(renderCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.graphicsPipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+        vkCmdBindDescriptorSets(renderCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.terrainPipelineLayout, 0, 1, &terrainDescriptorSets[i], 0, nullptr);
 
         // command to draw the vertices in the vertex buffer
         //vkCmdDraw(renderCommandBuffers[i], static_cast<uint32_t>(terrain.vertices.size()), 1, 0, 0);
@@ -560,8 +580,13 @@ void TerrainApplication::recordGeometryCommandBuffer() {
 //////////////////////
 
 void TerrainApplication::createVertexBuffer() {
+    // copy constructor containing the terrain vertices
+    std::vector<Vertex> vertices(terrain.vertices);
+    // insert the airplane vertices
+    vertices.insert(vertices.end(), airplane.model.vertices.begin(), airplane.model.vertices.end());
+
     // precompute buffer size
-    VkDeviceSize bufferSize = sizeof(terrain.vertices[0]) * terrain.vertices.size();
+    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
     // a staging buffer for mapping and copying 
     BufferData stagingBuffer;
@@ -583,13 +608,13 @@ void TerrainApplication::createVertexBuffer() {
         bufferSize,             // size of the buffer
         0,                      // flags
         &data);
-    memcpy(data, terrain.vertices.data(), (size_t)bufferSize); 
+    memcpy(data, vertices.data(), (size_t)bufferSize); 
     vkUnmapMemory(vkSetup.device, stagingBuffer.memory); // unmap the memory 
 
     // reuse the creation struct
     createInfo.usage       = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     createInfo.properties  = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    createInfo.pBufferData = &_terrainVB;
+    createInfo.pBufferData = &_bVertex;
 
     // in device memory (gpu)
     utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
@@ -603,7 +628,7 @@ void TerrainApplication::createVertexBuffer() {
     // buffer copy struct
     BufferCopyInfo copyInfo{};
     copyInfo.pSrc  = &stagingBuffer.buffer;
-    copyInfo.pDst = &_terrainVB.buffer;
+    copyInfo.pDst = &_bVertex.buffer;
     copyInfo.copyRegion = copyRegion;
 
     utils::copyBuffer(&vkSetup.device, &vkSetup.graphicsQueue, renderCommandPool, &copyInfo);
@@ -613,8 +638,17 @@ void TerrainApplication::createVertexBuffer() {
 }
 
 void TerrainApplication::createIndexBuffer() {
-    // almost identical to the vertex buffer creation process except where commented
-    VkDeviceSize bufferSize = sizeof(terrain.indices[0]) * terrain.indices.size();
+    // copy constructor containing the terrain vertex indices
+    std::vector<uint32_t> indices(terrain.indices);
+    // insert the airplane vertices
+    indices.insert(indices.end(), airplane.model.indices.begin(), airplane.model.indices.end());
+
+    // compute the new vertex indices to take into account the concatenation of vertex vectors
+    for (size_t i = 0; i < airplane.model.indices.size(); i++) {
+        indices[terrain.indices.size() + i] += static_cast<uint32_t>(terrain.vertices.size());
+    }
+
+    VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
     BufferData stagingBuffer;
 
@@ -628,13 +662,13 @@ void TerrainApplication::createIndexBuffer() {
 
     void* data;
     vkMapMemory(vkSetup.device, stagingBuffer.memory, 0, bufferSize, 0, &data);
-    memcpy(data, terrain.indices.data(), (size_t)bufferSize);
+    memcpy(data, indices.data(), (size_t)bufferSize);
     vkUnmapMemory(vkSetup.device, stagingBuffer.memory);
 
     // different usage bit flag VK_BUFFER_USAGE_INDEX_BUFFER_BIT instead of VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
     createInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
     createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    createInfo.pBufferData = &_terrainIB;
+    createInfo.pBufferData = &_bIndex;
 
     utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
 
@@ -645,7 +679,7 @@ void TerrainApplication::createIndexBuffer() {
 
     BufferCopyInfo copyInfo{};
     copyInfo.pSrc = &stagingBuffer.buffer;
-    copyInfo.pDst = &_terrainIB.buffer;
+    copyInfo.pDst = &_bIndex.buffer;
     copyInfo.copyRegion = copyRegion;
 
     utils::copyBuffer(&vkSetup.device, &vkSetup.graphicsQueue, renderCommandPool, &copyInfo);
@@ -679,16 +713,14 @@ void TerrainApplication::recreateVulkanData() {
     vkFreeCommandBuffers(vkSetup.device, imGuiCommandPool, static_cast<uint32_t>(imGuiCommandBuffers.size()), imGuiCommandBuffers.data());
     
     // also destroy the uniform buffers that worked with the swap chain
-    for (size_t i = 0; i < swapChainData.images.size(); i++) {
-        _uniformBuffers[i].cleanupBufferData(vkSetup.device);
-    }
+    _uniformBuffer.cleanupBufferData(vkSetup.device);
 
     // destroy the framebuffer data, followed by the swap chain data
     framebufferData.cleanupFrambufferData();
     swapChainData.cleanupSwapChainData();
 
     // recreate them
-    swapChainData.initSwapChainData(&vkSetup, &descriptorSetLayout);
+    swapChainData.initSwapChainData(&vkSetup, descriptorSetLayouts.data());
     framebufferData.initFramebufferData(&vkSetup, &swapChainData, renderCommandPool);
 
     // recreate descriptor data
@@ -989,9 +1021,8 @@ void TerrainApplication::cleanup() {
     vkFreeCommandBuffers(vkSetup.device, imGuiCommandPool, static_cast<uint32_t>(imGuiCommandBuffers.size()), imGuiCommandBuffers.data());
     
     // also destroy the uniform buffers that worked with the swap chain
-    for (size_t i = 0; i < swapChainData.images.size(); i++) {
-        _uniformBuffers[i].cleanupBufferData(vkSetup.device);
-    }
+    _uniformBuffer.cleanupBufferData(vkSetup.device);
+    
 
     // call the function we created for destroying the swap chain and frame buffers
     // in the reverse order of their creation
@@ -999,19 +1030,20 @@ void TerrainApplication::cleanup() {
     swapChainData.cleanupSwapChainData();
 
     // cleanup the descriptor pools and descriptor sets
-    vkDestroyDescriptorPool(vkSetup.device, imGuiDescriptorPool, nullptr);
     vkDestroyDescriptorPool(vkSetup.device, descriptorPool, nullptr);
 
     airplane.texture.cleanupTexture();
 
     // destroy the descriptor layout
-    vkDestroyDescriptorSetLayout(vkSetup.device, descriptorSetLayout, nullptr);
+    for (size_t i = 0; i < descriptorSetLayouts.size(); i++) {
+        vkDestroyDescriptorSetLayout(vkSetup.device, descriptorSetLayouts[i], nullptr);
+    }
 
     // destroy the index buffer and free its memory
-    _terrainIB.cleanupBufferData(vkSetup.device);
+    _bIndex.cleanupBufferData(vkSetup.device);
 
     // destroy the vertex buffer and free its memory
-    _terrainVB.cleanupBufferData(vkSetup.device);
+    _bVertex.cleanupBufferData(vkSetup.device);
 
 
     // loop over each frame and destroy its semaphores 
