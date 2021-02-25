@@ -50,23 +50,28 @@ void Texture::createTextureImage(const std::string& path, const VkCommandPool& c
     // forces image to be loaded with an alpha channel, returns ptr to first element in an array of pixels
     stbi_uc* pixels = stbi_load(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     // laid out row by row with 4 bytes by pixel in case of STBI_rgb_alpha
-    VkDeviceSize imageSize = texWidth * texHeight * 4;
+    VkDeviceSize imageSize = static_cast<VkDeviceSize>(texWidth * texHeight * 4);
     if (!pixels) {
         throw std::runtime_error("failed to load texture image!");
     }
 
     // create a staging buffer in host visible memory so we can map it, not device memory although that is our destination
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    BufferData stagingBuffer;
 
-    utils::createBuffer(&vkSetup->device, &vkSetup->physicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        stagingBuffer, stagingBufferMemory);
+    BufferCreateInfo createInfo{};
+    createInfo.size        = imageSize;
+    createInfo.usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    createInfo.properties  = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    createInfo.pBufferData = &stagingBuffer;
+    
+
+    utils::createBuffer(&vkSetup->device, &vkSetup->physicalDevice, &createInfo);
 
     // directly copy the pixels in the array from the image loading library to the buffer
     void* data;
-    vkMapMemory(vkSetup->device, stagingBufferMemory, 0, imageSize, 0, &data);
+    vkMapMemory(vkSetup->device, stagingBuffer.memory, 0, imageSize, 0, &data);
     memcpy(data, pixels, static_cast<size_t>(imageSize));
-    vkUnmapMemory(vkSetup->device, stagingBufferMemory);
+    vkUnmapMemory(vkSetup->device, stagingBuffer.memory);
 
     // and cleanup pixels after copying in the data
     stbi_image_free(pixels);
@@ -91,7 +96,7 @@ void Texture::createTextureImage(const std::string& path, const VkCommandPool& c
     transitionData.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     transitionData.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     utils::transitionImageLayout(&vkSetup->device, &vkSetup->graphicsQueue, transitionData); // specify the initial layout VK_IMAGE_LAYOUT_UNDEFINED
-    utils::copyBufferToImage(&vkSetup->device, &vkSetup->graphicsQueue, commandPool, stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+    utils::copyBufferToImage(&vkSetup->device, &vkSetup->graphicsQueue, commandPool, stagingBuffer.buffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
     // need another transfer to give the shader access to the texture
     transitionData.image = &textureImage;
     transitionData.renderCommandPool = commandPool;
@@ -101,8 +106,7 @@ void Texture::createTextureImage(const std::string& path, const VkCommandPool& c
     utils::transitionImageLayout(&vkSetup->device, &vkSetup->graphicsQueue, transitionData);
 
     // cleanup the staging buffer and its memory
-    vkDestroyBuffer(vkSetup->device, stagingBuffer, nullptr);
-    vkFreeMemory(vkSetup->device, stagingBufferMemory, nullptr);
+    stagingBuffer.cleanupBufferData(vkSetup->device);
 }
 
 void Texture::createTextureSampler() {

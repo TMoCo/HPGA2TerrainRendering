@@ -291,7 +291,7 @@ void TerrainApplication::createDescriptorSets() {
     for (size_t i = 0; i < swapChainData.images.size(); i++) {
         // the buffer and the region of it that contain the data for the descriptor
         VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = uniformBuffers[i]; // contents of buffer for image i
+        bufferInfo.buffer = _uniformBuffers[i].buffer; // contents of buffer for image i
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject); // here this is the size of the whole buffer, we can use VK_WHOLE_SIZE instead
 
@@ -316,6 +316,8 @@ void TerrainApplication::createDescriptorSets() {
         descriptorWrites[0].pImageInfo = nullptr; // for image data
         descriptorWrites[0].pTexelBufferView = nullptr; // desciptors refering to buffer views
 
+        /*
+        */
         // the texture sampler
         descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[1].dstSet = descriptorSets[i];
@@ -341,16 +343,18 @@ void TerrainApplication::createDescriptorSets() {
 //////////////////////
 
 void TerrainApplication::createUniformBuffers() {
-    // specify what the size of the buffer is
-    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-
     // resize the uniform buffer to be as big as the swap chain, each image has its own set of uniforms
-    uniformBuffers.resize(swapChainData.images.size());
-    uniformBuffersMemory.resize(swapChainData.images.size());
+    _uniformBuffers.resize(swapChainData.images.size());
+
+    BufferCreateInfo createInfo{};
+    createInfo.size        = sizeof(UniformBufferObject);
+    createInfo.usage       = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    createInfo.properties  = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 
     // loop over the images and create a uniform buffer for each
     for (size_t i = 0; i < swapChainData.images.size(); i++) {
-        utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
+        createInfo.pBufferData = &_uniformBuffers[i]; // change buffer at each iteration
+        utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
     }
 }
 
@@ -412,9 +416,9 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
 
     // copy the uniform buffer object into the uniform buffer
     void* data;
-    vkMapMemory(vkSetup.device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
+    vkMapMemory(vkSetup.device, _uniformBuffers[currentImage].memory, 0, sizeof(ubo), 0, &data);
     memcpy(data, &ubo, sizeof(ubo));
-    vkUnmapMemory(vkSetup.device, uniformBuffersMemory[currentImage]);
+    vkUnmapMemory(vkSetup.device, _uniformBuffers[currentImage].memory);
 }
 
 //////////////////////
@@ -506,13 +510,13 @@ void TerrainApplication::recordGeometryCommandBuffer() {
             // bind the graphics pipeline, second param determines if the object is a graphics or compute pipeline
         vkCmdBindPipeline(renderCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.graphicsPipeline);
 
-        VkBuffer vertexBuffers[] = { vertexBuffer };
+        VkBuffer vertexBuffers[] = { _terrainVB.buffer };
         VkDeviceSize offsets[] = { 0 };
         // bind the vertex buffer, can have many vertex buffers
         vkCmdBindVertexBuffers(renderCommandBuffers[i], 0, 1, vertexBuffers, offsets);
         // bind the index buffer, can only have a single index buffer 
         // params (-the nescessary cmd) bufferindex buffer, byte offset into it, type of data
-        vkCmdBindIndexBuffer(renderCommandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(renderCommandBuffers[i], _terrainIB.buffer, 0, VK_INDEX_TYPE_UINT32);
         // bind the uniform descriptor sets
         vkCmdBindDescriptorSets(renderCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.graphicsPipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
 
@@ -558,55 +562,95 @@ void TerrainApplication::recordGeometryCommandBuffer() {
 void TerrainApplication::createVertexBuffer() {
     // precompute buffer size
     VkDeviceSize bufferSize = sizeof(terrain.vertices[0]) * terrain.vertices.size();
-    // call our helper buffer creation function
 
-    // use a staging buffer for mapping and copying 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    // a staging buffer for mapping and copying 
+    BufferData stagingBuffer;
+
+    // buffer creation struct
+    BufferCreateInfo createInfo{};
+    createInfo.size        = bufferSize;
+    createInfo.usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    createInfo.properties  = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    createInfo.pBufferData = &stagingBuffer;
+
     // in host memory (cpu)
-    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-    // VK_BUFFER_USAGE_TRANSFER_SRC_BIT: Buffer can be used as source in a memory transfer operation.
+    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
 
+    // map then copy in memory
     void* data;
-    // access a region in memory ressource defined by offset and size (0 and bufferInfo.size), can use special value VK_WHOLE_SIZE to map all of the memory
-    // second to last is for flages (none in current API so set to 0), last is output for pointer to mapped memory
-    vkMapMemory(vkSetup.device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, terrain.vertices.data(), (size_t)bufferSize); // memcpy the data in the vertex list to that region in memory
-    vkUnmapMemory(vkSetup.device, stagingBufferMemory); // unmap the memory 
-    // possible issues as driver may not immediately copy data into buffer memory, writes to buffer may not be visible in mapped memory yet...
-    // either use a heap that is host coherent (VK_MEMORY_PROPERTY_HOST_COHERENT_BIT in memory requirements)
-    // or call vkFlushMappedMemoryRanges after writing to mapped memory, and call vkInvalidateMappedMemoryRanges before reading from the mapped memory
+    vkMapMemory(vkSetup.device, stagingBuffer.memory,
+        0,                      // offset
+        bufferSize,             // size of the buffer
+        0,                      // flags
+        &data);
+    memcpy(data, terrain.vertices.data(), (size_t)bufferSize); 
+    vkUnmapMemory(vkSetup.device, stagingBuffer.memory); // unmap the memory 
 
-    // create the vertex buffer, now the memory is device local (faster)
-    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
-    // VK_BUFFER_USAGE_TRANSFER_DST_BIT: Buffer can be used as destination in a memory transfer operation
-    utils::copyBuffer(&vkSetup.device, &vkSetup.graphicsQueue, renderCommandPool, stagingBuffer, vertexBuffer, bufferSize);
+    // reuse the creation struct
+    createInfo.usage       = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    createInfo.properties  = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    createInfo.pBufferData = &_terrainVB;
+
+    // in device memory (gpu)
+    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
+
+    // the struct used by VkCmdCopyBuffer
+    VkBufferCopy copyRegion{}; 
+    copyRegion.size = bufferSize;
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
+
+    // buffer copy struct
+    BufferCopyInfo copyInfo{};
+    copyInfo.pSrc  = &stagingBuffer.buffer;
+    copyInfo.pDst = &_terrainVB.buffer;
+    copyInfo.copyRegion = copyRegion;
+
+    utils::copyBuffer(&vkSetup.device, &vkSetup.graphicsQueue, renderCommandPool, &copyInfo);
 
     // cleanup after using the staging buffer
-    vkDestroyBuffer(vkSetup.device, stagingBuffer, nullptr);
-    vkFreeMemory(vkSetup.device, stagingBufferMemory, nullptr);
+    stagingBuffer.cleanupBufferData(vkSetup.device);
 }
 
 void TerrainApplication::createIndexBuffer() {
     // almost identical to the vertex buffer creation process except where commented
     VkDeviceSize bufferSize = sizeof(terrain.indices[0]) * terrain.indices.size();
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    BufferData stagingBuffer;
+
+    BufferCreateInfo createInfo{};
+    createInfo.size = bufferSize;
+    createInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    createInfo.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    createInfo.pBufferData = &stagingBuffer;
+
+    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
 
     void* data;
-    vkMapMemory(vkSetup.device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vkMapMemory(vkSetup.device, stagingBuffer.memory, 0, bufferSize, 0, &data);
     memcpy(data, terrain.indices.data(), (size_t)bufferSize);
-    vkUnmapMemory(vkSetup.device, stagingBufferMemory);
+    vkUnmapMemory(vkSetup.device, stagingBuffer.memory);
 
     // different usage bit flag VK_BUFFER_USAGE_INDEX_BUFFER_BIT instead of VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
-    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice,bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+    createInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    createInfo.pBufferData = &_terrainIB;
 
-    utils::copyBuffer(&vkSetup.device, &vkSetup.graphicsQueue, renderCommandPool, stagingBuffer, indexBuffer, bufferSize);
+    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
 
-    vkDestroyBuffer(vkSetup.device, stagingBuffer, nullptr);
-    vkFreeMemory(vkSetup.device, stagingBufferMemory, nullptr);
+    VkBufferCopy copyRegion{};
+    copyRegion.size = bufferSize;
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
+
+    BufferCopyInfo copyInfo{};
+    copyInfo.pSrc = &stagingBuffer.buffer;
+    copyInfo.pDst = &_terrainIB.buffer;
+    copyInfo.copyRegion = copyRegion;
+
+    utils::copyBuffer(&vkSetup.device, &vkSetup.graphicsQueue, renderCommandPool, &copyInfo);
+
+    stagingBuffer.cleanupBufferData(vkSetup.device);
 }
 
 //////////////////////
@@ -636,8 +680,7 @@ void TerrainApplication::recreateVulkanData() {
     
     // also destroy the uniform buffers that worked with the swap chain
     for (size_t i = 0; i < swapChainData.images.size(); i++) {
-        vkDestroyBuffer(vkSetup.device, uniformBuffers[i], nullptr);
-        vkFreeMemory(vkSetup.device, uniformBuffersMemory[i], nullptr);
+        _uniformBuffers[i].cleanupBufferData(vkSetup.device);
     }
 
     // destroy the framebuffer data, followed by the swap chain data
@@ -947,8 +990,7 @@ void TerrainApplication::cleanup() {
     
     // also destroy the uniform buffers that worked with the swap chain
     for (size_t i = 0; i < swapChainData.images.size(); i++) {
-        vkDestroyBuffer(vkSetup.device, uniformBuffers[i], nullptr);
-        vkFreeMemory(vkSetup.device, uniformBuffersMemory[i], nullptr);
+        _uniformBuffers[i].cleanupBufferData(vkSetup.device);
     }
 
     // call the function we created for destroying the swap chain and frame buffers
@@ -966,12 +1008,10 @@ void TerrainApplication::cleanup() {
     vkDestroyDescriptorSetLayout(vkSetup.device, descriptorSetLayout, nullptr);
 
     // destroy the index buffer and free its memory
-    vkDestroyBuffer(vkSetup.device, indexBuffer, nullptr);
-    vkFreeMemory(vkSetup.device, indexBufferMemory, nullptr);
+    _terrainIB.cleanupBufferData(vkSetup.device);
 
     // destroy the vertex buffer and free its memory
-    vkDestroyBuffer(vkSetup.device, vertexBuffer, nullptr);
-    vkFreeMemory(vkSetup.device, vertexBufferMemory, nullptr);
+    _terrainVB.cleanupBufferData(vkSetup.device);
 
 
     // loop over each frame and destroy its semaphores 

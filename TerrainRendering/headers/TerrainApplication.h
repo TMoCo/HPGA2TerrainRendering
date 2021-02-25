@@ -156,16 +156,13 @@ private:
     Airplane airplane;
 
     // vertex buffer
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferMemory;
+    BufferData _terrainVB;
 
     // index buffer
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexBufferMemory;
+    BufferData _terrainIB;
 
     // uniform buffers
-    std::vector<VkBuffer> uniformBuffers;
-    std::vector<VkDeviceMemory> uniformBuffersMemory;
+    std::vector<BufferData> _uniformBuffers;
 
 
     // layout used to specify fragment uniforms, still required even if not used

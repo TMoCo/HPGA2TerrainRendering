@@ -327,55 +327,46 @@ void utils::copyBufferToImage(const VkDevice* device, const VkQueue* queue, cons
     endSingleTimeCommands(device, queue, &commandBuffer, &renderCommandPool);
 }
 
-void utils::createBuffer(const VkDevice* device, const VkPhysicalDevice* physicalDevice, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
-    VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
+void utils::createBuffer(const VkDevice* device, const VkPhysicalDevice* physicalDevice, BufferCreateInfo* bufferCreateInfo) {
     // fill in the corresponding struct
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = size; // allocate a buffer of the right size in bytes
-    bufferInfo.usage = usage; // what the data in the buffer is used for
+    bufferInfo.size = bufferCreateInfo->size; // allocate a buffer of the right size in bytes
+    bufferInfo.usage = bufferCreateInfo->usage; // what the data in the buffer is used for
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // buffers can be owned by a single queue or shared between many
     // bufferInfo.flags = 0; // to configure sparse memory
 
     // attempt to create a buffer
-    if (vkCreateBuffer(*device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+    if (vkCreateBuffer(*device, &bufferInfo, nullptr, &bufferCreateInfo->pBufferData->buffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to create vertex buffer!");
     }
 
     // created a buffer, but haven't assigned any memory yet, also get the right memory requirements
     VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(*device, buffer, &memRequirements);
+    vkGetBufferMemoryRequirements(*device, bufferCreateInfo->pBufferData->buffer, &memRequirements);
 
     // allocate the memory for the buffer
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = utils::findMemoryType(physicalDevice, memRequirements.memoryTypeBits, properties);
+    allocInfo.memoryTypeIndex = utils::findMemoryType(physicalDevice, memRequirements.memoryTypeBits, bufferCreateInfo->properties);
 
     // allocate memory for the buffer. In a real world application, not supposed to actually call vkAllocateMemory for every individual buffer. 
     // The maximum number of simultaneous memory allocations is limited by the maxMemoryAllocationCount physical device limit. The right way to 
     // allocate memory for large number of objects at the same time is to create a custom allocator that splits up a single allocation among many 
     // different objects by using the offset parameters seen in other functions
-    if (vkAllocateMemory(*device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+    if (vkAllocateMemory(*device, &allocInfo, nullptr, &bufferCreateInfo->pBufferData->memory) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate vertex buffer memory!");
     }
 
     // associate memory with buffer
-    vkBindBufferMemory(*device, buffer, bufferMemory, 0);
+    vkBindBufferMemory(*device, bufferCreateInfo->pBufferData->buffer, bufferCreateInfo->pBufferData->memory, 0);
 }
 
-void utils::copyBuffer(const VkDevice* device, const VkQueue* queue, const VkCommandPool& commandPool, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
+void utils::copyBuffer(const VkDevice* device, const VkQueue* queue, const VkCommandPool& commandPool, BufferCopyInfo* bufferCopyInfo) {
     // memory transfer operations are executed using command buffers, like drawing commands. We need to allocate a temporary command buffer
     // could use a command pool for these short lived operations using the flag VK_COMMAND_POOL_CREATE_TRANSIENT_BIT 
     VkCommandBuffer commandBuffer = beginSingleTimeCommands(device, commandPool);
-
-    // defines the region of 
-    VkBufferCopy copyRegion{};
-    // offsets in the source and destination, we may want to keep certain values
-    copyRegion.srcOffset = 0;
-    copyRegion.dstOffset = 0;
-    copyRegion.size = size; // can't be VK_WHOLE_SIZE here like vkMapMemory
-    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
+    vkCmdCopyBuffer(commandBuffer, *bufferCopyInfo->pSrc, *bufferCopyInfo->pDst, 1, &bufferCopyInfo->copyRegion);
     endSingleTimeCommands(device, queue, &commandBuffer, &commandPool);
 }

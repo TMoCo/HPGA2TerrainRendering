@@ -62,8 +62,14 @@ const std::string TERRAIN_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPe
 const size_t N_DESCRIPTOR_LAYOUTS = 2;
 
 // paths to the fragment and vertex shaders used
-const std::string SHADER_VERT_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\source\\shaders\\vert.spv";
-const std::string SHADER_FRAG_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\source\\shaders\\frag.spv";
+
+// vertex shaders
+const std::string TERRAIN_SHADER_VERT_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\source\\shaders\\terrainVert.spv";
+const std::string AIRPLANE_SHADER_VERT_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\source\\shaders\\airplaneVert.spv";
+
+// fragment shaders
+const std::string TERRAIN_SHADER_FRAG_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\source\\shaders\\terrainFrag.spv";
+const std::string AIRPLANE_SHADER_FRAG_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\source\\shaders\\airplaneFrag.spv";
 
 // validation layers for debugging
 const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
@@ -122,6 +128,17 @@ enum class CameraMovement : unsigned char {
 //
 //////////////////////
 
+// a struct that contains a vk buffer and its memory
+struct BufferData {
+    VkBuffer       buffer = nullptr;
+    VkDeviceMemory memory = nullptr;
+
+    inline void cleanupBufferData(const VkDevice& device) {
+        vkDestroyBuffer(device, buffer, nullptr);
+        vkFreeMemory(device, memory, nullptr);
+    }
+};
+
 // a struct for the queue family index
 struct QueueFamilyIndices {
     // queue family supporting drawing commands
@@ -163,6 +180,21 @@ struct TransitionImageLayoutData {
     VkFormat      format            = VK_FORMAT_UNDEFINED;
     VkImageLayout oldLayout         = VK_IMAGE_LAYOUT_UNDEFINED;
     VkImageLayout newLayout         = VK_IMAGE_LAYOUT_UNDEFINED;
+};
+
+// a POD struct for creating a buffer
+struct BufferCreateInfo {
+    VkDeviceSize          size       = 0;
+    VkBufferUsageFlags    usage      = 0;
+    VkMemoryPropertyFlags properties = 0;
+    BufferData*           pBufferData {};
+};
+
+// a POD struct for copying a buffer into another
+struct BufferCopyInfo {
+    VkBuffer*    pSrc       = nullptr;
+    VkBuffer*    pDst       = nullptr;
+    VkBufferCopy copyRegion {};
 };
 
 //////////////////////
@@ -209,10 +241,9 @@ namespace utils {
 
     void copyBufferToImage(const VkDevice* device, const VkQueue* queue, const VkCommandPool& renderCommandPool, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
-    void createBuffer(const VkDevice* device, const VkPhysicalDevice* physicalDevice, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
-        VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+    void createBuffer(const VkDevice* device, const VkPhysicalDevice* physicalDevice, BufferCreateInfo* bufferCreateInfo);
 
-    void copyBuffer(const VkDevice* device, const VkQueue* queue, const VkCommandPool& commandPool, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+    void copyBuffer(const VkDevice* device, const VkQueue* queue, const VkCommandPool& commandPool, BufferCopyInfo* bufferCopyInfo);
 }
 
 #endif // !UTILS_H
