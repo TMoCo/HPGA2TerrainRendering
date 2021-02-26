@@ -612,42 +612,42 @@ void SwapChainData::createAirplanePipeline(VkDescriptorSetLayout* descriptorSetL
 
     // pipeline shaders stages
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertShaderStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertShaderStageInfo.stage  = VK_SHADER_STAGE_VERTEX_BIT;
     vertShaderStageInfo.module = vertShaderModule;
-    vertShaderStageInfo.pName = "main"; // main function as entry point
+    vertShaderStageInfo.pName  = "main"; // main function as entry point
     
     VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
-    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT; 
+    fragShaderStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragShaderStageInfo.stage  = VK_SHADER_STAGE_FRAGMENT_BIT; 
     fragShaderStageInfo.module = fragShaderModule;
-    fragShaderStageInfo.pName = "main"; // also use main as the entry point
+    fragShaderStageInfo.pName  = "main"; // also use main as the entry point
 
     // use this array for future reference
     VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
     // setup pipeline to accept vertex data
-    auto bindingDescription = Vertex::getBindingDescription();
+    auto bindingDescription    = Vertex::getBindingDescription();
     auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
     // vertex data format (binding and attributes)
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputInfo.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInputInfo.vertexBindingDescriptionCount   = 1;
+    vertexInputInfo.pVertexBindingDescriptions      = &bindingDescription;
     vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+    vertexInputInfo.pVertexAttributeDescriptions    = attributeDescriptions.data();
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     inputAssembly.primitiveRestartEnable = VK_FALSE; 
 
     // region of framebuffer rendered to
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = (float)extent.width; // swapchain's extent
+    viewport.width  = (float)extent.width; // swapchain's extent
     viewport.height = (float)extent.height;
     viewport.minDepth = 0.0f; // in range [0,1]
     viewport.maxDepth = 1.0f; // in range [0,1]
@@ -657,57 +657,54 @@ void SwapChainData::createAirplanePipeline(VkDescriptorSetLayout* descriptorSetL
     scissor.extent = extent;
 
     VkPipelineViewportStateCreateInfo viewportState{};
-    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewportState.viewportCount = 1;
-    viewportState.pViewports = &viewport;
-    viewportState.scissorCount = 1;
-    viewportState.pScissors = &scissor;
+    viewportState.pViewports    = &viewport;
+    viewportState.scissorCount  = 1;
+    viewportState.pScissors     = &scissor;
 
     VkPipelineRasterizationStateCreateInfo rasterizer{};
-    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizer.depthClampEnable = VK_FALSE;
+    rasterizer.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizer.depthClampEnable        = VK_FALSE;
     rasterizer.rasterizerDiscardEnable = VK_FALSE; 
-    rasterizer.polygonMode = VK_POLYGON_MODE_FILL; 
-    rasterizer.lineWidth = 1.0f; // > 1 requires an extension
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT; 
-    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; // winding order
-    rasterizer.depthBiasEnable = VK_FALSE; 
+    rasterizer.polygonMode             = VK_POLYGON_MODE_FILL; 
+    rasterizer.lineWidth               = 1.0f; // > 1 requires an extension
+    rasterizer.cullMode                = VK_CULL_MODE_BACK_BIT; 
+    rasterizer.frontFace               = VK_FRONT_FACE_CLOCKWISE; // winding order
+    rasterizer.depthBiasEnable         = VK_FALSE; 
 
     VkPipelineMultisampleStateCreateInfo multisampling{};
-    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampling.sampleShadingEnable = VK_FALSE;
+    multisampling.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampling.sampleShadingEnable  = VK_FALSE;
     multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
     VkPipelineColorBlendAttachmentState colorBlendAttachment{}; 
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE; 
+    colorBlendAttachment.blendEnable    = VK_FALSE; 
 
     VkPipelineColorBlendStateCreateInfo colorBlending{};
-    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colorBlending.attachmentCount = 1; // the previously declared attachment
-    colorBlending.pAttachments = &colorBlendAttachment;
+    colorBlending.pAttachments    = &colorBlendAttachment;
 
     // enable and configure depth testing
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
     depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 
     // spec if the depth should be compared to the depth buffer
-    if (enableDepthTest)
-        depthStencil.depthTestEnable = VK_TRUE;
-    else
-        depthStencil.depthTestEnable = VK_FALSE;
-    depthStencil.depthWriteEnable = VK_TRUE;
-    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencil.depthTestEnable       = VK_TRUE;
+    depthStencil.depthWriteEnable      = VK_TRUE;
+    depthStencil.depthCompareOp        = VK_COMPARE_OP_LESS;
     depthStencil.depthBoundsTestEnable = VK_FALSE;
     // stencil buffer operations
-    depthStencil.stencilTestEnable = VK_FALSE;
+    depthStencil.stencilTestEnable     = VK_FALSE;
 
     // create pipeline layout
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     // reference to descriptor layout (uniforms, textures)
     pipelineLayoutInfo.setLayoutCount = 1;
-    pipelineLayoutInfo.pSetLayouts = descriptorSetLayout;
+    pipelineLayoutInfo.pSetLayouts    = descriptorSetLayout;
 
     if (vkCreatePipelineLayout(vkSetup->device, &pipelineLayoutInfo, nullptr, &airplanePipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout!");
@@ -721,17 +718,17 @@ void SwapChainData::createAirplanePipeline(VkDescriptorSetLayout* descriptorSetL
     pipelineInfo.pStages = shaderStages;
 
     // reference the structures describing the fixed function pipeline
-    pipelineInfo.pVertexInputState = &vertexInputInfo;
+    pipelineInfo.pVertexInputState   = &vertexInputInfo;
     pipelineInfo.pInputAssemblyState = &inputAssembly;
-    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pViewportState      = &viewportState;
     pipelineInfo.pRasterizationState = &rasterizer;
-    pipelineInfo.pMultisampleState = &multisampling;
-    pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.pDepthStencilState = &depthStencil;
-    pipelineInfo.layout = airplanePipelineLayout;
+    pipelineInfo.pMultisampleState   = &multisampling;
+    pipelineInfo.pColorBlendState    = &colorBlending;
+    pipelineInfo.pDepthStencilState  = &depthStencil;
+    pipelineInfo.layout              = airplanePipelineLayout;
     // and a reference to the render pass
-    pipelineInfo.renderPass = renderPass;
-    pipelineInfo.subpass = 0; // index of desired sub pass where pipeline will be used
+    pipelineInfo.renderPass          = renderPass;
+    pipelineInfo.subpass             = 0; // index of desired sub pass where pipeline will be used
 
     if (vkCreateGraphicsPipelines(vkSetup->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &airplanePipeline) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");

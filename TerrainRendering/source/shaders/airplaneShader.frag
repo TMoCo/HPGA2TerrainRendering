@@ -33,5 +33,5 @@ layout(location = 0) out vec4 outColor;
 
 void main() {
 	// do something
-	outColor = vec4(fragNormal, 1.0f);
+	outColor = texture(texSampler, fragTexCoord).rgba;
 }

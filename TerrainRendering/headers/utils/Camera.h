@@ -17,6 +17,8 @@ public:
 
 	glm::mat4 getViewMatrix();
 
+	glm::mat4 getRotation();
+
 	void processInput(CameraMovement camMove, float deltaTime); // just keyborad input
 public: 
 	// update the camera's orientation
