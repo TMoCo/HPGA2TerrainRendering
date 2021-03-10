@@ -90,5 +90,6 @@ void main()
 
     }
     */
-    outColor = vec4(fragNormal, 1.0f);
+    outColor = fragMaterial;
+    //outColor = vec4(fragNormal, 1.0f);
 }

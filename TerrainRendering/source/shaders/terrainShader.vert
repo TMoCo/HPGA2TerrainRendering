@@ -28,6 +28,6 @@ void main() {
     fragPos = pos.xyz; // swizzle to get the vec3 xyz components of the shader
     // simply pass along the vertex colour and texture coordinate
     fragNormal = (ubo.model * vec4(inNormal, 1.0f)).xyz;
-    fragMaterial = inMaterial;
+    fragMaterial = vec4(1.0f, float(gl_VertexIndex / 250000.0f), 1.0f, 0.0f); //inMaterial;
     fragTexCoord = inTexCoord;
 }

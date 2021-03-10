@@ -93,11 +93,10 @@ void TerrainApplication::initVulkan() {
     // STEP 4: Create the application's data (models, textures...)
     //
 
-    // model can go in a separate class
-    //airplane.createPlane(&vkSetup, renderCommandPool, glm::vec3(0.0f, 0.0f, 0.0f));
-    airplane.createPlane(&vkSetup, renderCommandPool, glm::vec3(0.0f, 255.0f, 500.0f));
-    // glm::lookAt(glm::vec3(0.0f, 255.0f, 500.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-    terrain.loadTerrain(TERRAIN_PATH);
+    airplane.createPlane(&vkSetup, renderCommandPool, glm::vec3(0.0f, 255.0f, -255.0f));
+
+    terrain.loadHeights(TERRAIN_HEIGHTS_PATH);
+    terrain.generateTerrainMesh();
 
     createVertexBuffer();
     createIndexBuffer();
@@ -340,8 +339,8 @@ void TerrainApplication::createDescriptorSets() {
         // bind the actual image and sampler to the descriptors in the descriptor set
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView   = airplane.texture.textureImageView;
-        imageInfo.sampler     = airplane.texture.textureSampler;
+        imageInfo.imageView   = airplane.texture_.textureImageView;
+        imageInfo.sampler     = airplane.texture_.textureSampler;
 
         // the struct configuring the descriptor set
         std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
@@ -396,7 +395,7 @@ void TerrainApplication::createUniformBuffers() {
 }
 
 void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
-    glm::mat4 view = airplane.camera.getViewMatrix();
+    glm::mat4 view = airplane.camera_.getViewMatrix();
 
     // project the scene with a 45° fov, use current swap chain extent to compute aspect ratio, near, far
     glm::mat4 proj = glm::perspective(glm::radians(45.0f), swapChainData.extent.width / (float)swapChainData.extent.height, 0.1f, 1000.0f);
@@ -407,7 +406,7 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
     UniformBufferObject terrainUbo{};
 
     // translate the model to start in view of the camera
-    terrainUbo.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -250.0f));
+    terrainUbo.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 250.0f));
     // add the user translation
     terrainUbo.model = glm::translate(terrainUbo.model, glm::vec3(translateX, translateY, translateZ));
     // add zoom
@@ -440,10 +439,12 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
     // airplane uniform buffer object
     UniformBufferObject airplaneUbo{};
 
-    airplaneUbo.model = glm::translate(glm::mat4(1.0f), airplane.position);
-    airplaneUbo.model = airplaneUbo.model * airplane.camera.getRotation();
-    airplaneUbo.model = glm::translate(airplaneUbo.model, -WORLD_FRONT * 3.0f);
-    airplaneUbo.model = glm::scale(airplaneUbo.model, glm::vec3(0.5f, 0.5f, 0.5f));
+    airplaneUbo.model = glm::mat4(1.0f); // airplane.camera_.getOrientation();
+    //std::cout << glm::to_string(airplane.camera_.getOrientation()) << '\n';
+    airplaneUbo.model = glm::translate(airplaneUbo.model, airplane.camera_.position_);  // translate the plane to the camera
+    airplaneUbo.model = glm::translate(airplaneUbo.model, airplane.camera_.orientation_.front * 10.0f); // translate the plane in front of the camera
+    airplaneUbo.model = airplaneUbo.model * airplane.camera_.orientation_.toWorldSpaceRotation(); // rotate the plane based on the camera's orientation
+    airplaneUbo.model = glm::scale(airplaneUbo.model, glm::vec3(0.5f, 0.5f, 0.5f)); // scale the plane to an acceptable size
 
     airplaneUbo.view = view;
     
@@ -549,7 +550,7 @@ void TerrainApplication::recordGeometryCommandBuffer() {
         vkCmdBindDescriptorSets(renderCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.airplanePipelineLayout, 0, 1, &airplaneDescriptorSets[i], 0, nullptr);
 
         vkCmdDrawIndexed(renderCommandBuffers[i],
-                        static_cast<uint32_t>(airplane.model.indices.size()), // index count
+                        static_cast<uint32_t>(airplane.model_.indices.size()), // index count
                         1,
                         0,                                                    // first index, just after the terrain indices
                         static_cast<uint32_t>(terrain.vertices.size()),       // the offset to be added to each vertex index
@@ -597,7 +598,7 @@ void TerrainApplication::createVertexBuffer() {
     //std::vector<Vertex> vertices(airplane.model.vertices);
     std::vector<Vertex> vertices(terrain.vertices);
     // insert the airplane vertices
-    vertices.insert(vertices.end(), airplane.model.vertices.begin(), airplane.model.vertices.end());
+    vertices.insert(vertices.end(), airplane.model_.vertices.begin(), airplane.model_.vertices.end());
 
     // precompute buffer size
     VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
@@ -658,8 +659,8 @@ void TerrainApplication::createIndexBuffer() {
 
     std::cout << indices.size() << '\n';
     // insert the airplane vertices
-    indices.insert(indices.end(), airplane.model.indices.begin(), airplane.model.indices.end());
-    std::cout << airplane.model.indices.size() << '\n';
+    indices.insert(indices.end(), airplane.model_.indices.begin(), airplane.model_.indices.end());
+    std::cout << airplane.model_.indices.size() << '\n';
     std::cout << indices.size() << '\n';
     /*
     */
@@ -1003,17 +1004,17 @@ int TerrainApplication::processKeyInput() {
         return 0;
 
     if (glfwGetKey(window, GLFW_KEY_W))
-        airplane.camera.processInput(CameraMovement::PitchUp, deltaTime);
+        airplane.camera_.processInput(CameraMovement::PitchUp, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_S))
-        airplane.camera.processInput(CameraMovement::PitchDown, deltaTime);
+        airplane.camera_.processInput(CameraMovement::PitchDown, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_A))
-        airplane.camera.processInput(CameraMovement::RollLeft, deltaTime);
+        airplane.camera_.processInput(CameraMovement::RollLeft, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D))
-        airplane.camera.processInput(CameraMovement::RollRight, deltaTime);
+        airplane.camera_.processInput(CameraMovement::RollRight, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_Q))
-        airplane.camera.processInput(CameraMovement::YawLeft, deltaTime);
+        airplane.camera_.processInput(CameraMovement::YawLeft, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_E))
-        airplane.camera.processInput(CameraMovement::YawRight, deltaTime);
+        airplane.camera_.processInput(CameraMovement::YawRight, deltaTime);
 
     // other wise just return true
     return 1;
@@ -1048,7 +1049,7 @@ void TerrainApplication::cleanup() {
     // cleanup the descriptor pools and descriptor sets
     vkDestroyDescriptorPool(vkSetup.device, descriptorPool, nullptr);
 
-    airplane.texture.cleanupTexture();
+    airplane.texture_.cleanupTexture();
 
     // destroy the descriptor layout
     for (size_t i = 0; i < descriptorSetLayouts.size(); i++) {

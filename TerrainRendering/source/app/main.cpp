@@ -6,6 +6,8 @@
 #include <iostream> 
 #include <stdexcept>
 
+#include <glm/gtx/string_cast.hpp>
+
 #include <cstdlib> // EXIT_SUCCES & EXIT_FAILURE macros
 
 // include the application definition
@@ -13,6 +15,12 @@
 
 int main() {
     TerrainApplication app;
+
+    glm::quat t = glm::angleAxis(0.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::quat u = glm::angleAxis(0.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::quat v = glm::angleAxis(0.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+
+    std::cout << glm::to_string(t * u * v) << '\n';
 
     try {
         app.run();

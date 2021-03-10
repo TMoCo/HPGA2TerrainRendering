@@ -175,6 +175,7 @@
   <ItemGroup>
     <ClInclude Include="headers\Airplane.h" />
     <ClInclude Include="headers\utils\Camera.h" />
+    <ClInclude Include="headers\utils\Orientation.h" />
     <ClInclude Include="headers\vulkan_help\DepthResource.h" />
     <ClInclude Include="headers\TerrainApplication.h" />
     <ClInclude Include="headers\vulkan_help\FramebufferData.h" />

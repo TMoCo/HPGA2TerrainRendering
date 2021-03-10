@@ -15,17 +15,18 @@
 class Airplane {
 
 public:
-	void createPlane(VulkanSetup* pVkSetup, const VkCommandPool& commandPool, const glm::vec3& pos, const float& vel = 10.0f);
+	void createPlane(VulkanSetup* pVkSetup, const VkCommandPool& commandPool, const glm::vec3& position, const float& vel = 10.0f);
 
 	void updatePosition(const float& deltaTime);
+	void updateOrientation();
 
-	Model model;
-	Texture texture;
-	Camera camera;
+	// plane data
+	Model	model_;
+	Texture texture_;
+	Camera	camera_;
+	Orientation orientation_;
 
-	glm::vec3 position;
-
-	float velocity;
+	float velocity_;
 };
 
 
