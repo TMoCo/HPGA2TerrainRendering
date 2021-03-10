@@ -20,7 +20,6 @@ public:
 	// load a height map (greyscale ppm image)
 	void loadHeights(const std::string& path);
 
-private:
 	// returns a pointer to a height at a given row and col, with offsets if specified
 	float getHeight(const size_t& row, const size_t& col);
 	// compute the Central Finite Difference for a vertex at position row, col in the grid

@@ -14,8 +14,8 @@ void Terrain::generateTerrainMesh() {
 	// by making the vector of vertices smaller, we can ignore the edge and corner cases heights
 	// which is tolerale as the result is negligable on large data sets and saves a lot of computation
 	size_t vSize, iSize;
-	vSize = hSize - 2;	// vertex vector size
-	iSize = hSize - 3; // index vector size
+	vSize = hSize;	// vertex vector size
+	iSize = hSize - 1; // index vector size
 	vertices.resize(vSize * vSize);
 	indices.resize(iSize * iSize * 6);
 
@@ -24,11 +24,10 @@ void Terrain::generateTerrainMesh() {
 	// create the vertices, the first one is in the -z -x position, we use the index size to centre the plane
 	glm::vec3 startPos(iSize / -2.0f, 0.0f, iSize / -2.0f);
 
-	for (size_t row = 0; row < vSize; row++) {
-		for (size_t col = 0; col < vSize; col++) {
+	for (size_t row = 1; row < vSize - 1; row++) {
+		for (size_t col = 1; col < vSize - 1; col++) {
 			// initialise empty vertex and set its position
 			Vertex vertex{};
-			//vertex.pos = startPos + glm::vec3(col * xStride, getHeight(row, col), row * zStride);
 			vertex.pos = startPos * stepScale + glm::vec3(col * stepScale, getHeight(row, col), row * stepScale);
 			vertex.normal = computeCFD(row, col);
 			// set the vertex in the vector directly

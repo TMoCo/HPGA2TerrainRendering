@@ -414,7 +414,6 @@ void SwapChainData::createImGuiRenderPass() {
 //////////////////////
 
 void SwapChainData::createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLayout) {
-    // std::vector<char> 
     auto vertShaderCode = Shader::readFile(TERRAIN_SHADER_VERT_PATH);
     auto fragShaderCode = Shader::readFile(TERRAIN_SHADER_FRAG_PATH);
 
@@ -446,9 +445,17 @@ void SwapChainData::createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLa
     // use this array for future reference
     VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
-    // setup pipeline to accept vertex data
-    auto bindingDescription = Vertex::getBindingDescription();
-    auto attributeDescriptions = Vertex::getAttributeDescriptions();
+    // setup pipeline to accept vertex data. For the terrain, these are just heights as floats
+    VkVertexInputBindingDescription bindingDescription{};
+    bindingDescription.binding = 0; // index of binding in array of bindings
+    bindingDescription.stride = sizeof(float); // bytes in one entry
+    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX; // how to move the next data
+
+    VkVertexInputAttributeDescription attributeDescription{};
+    attributeDescription.binding = 0;
+    attributeDescription.location = 0;
+    attributeDescription.format = VK_FORMAT_R32_SFLOAT; // a single float value
+    attributeDescription.offset = 0;
 
     // format of the vertex data, describe the binding and the attributes
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
@@ -457,8 +464,8 @@ void SwapChainData::createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLa
     // need arrays of structs that describe the details for loading vertex data
     vertexInputInfo.vertexBindingDescriptionCount = 1;
     vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+    vertexInputInfo.vertexAttributeDescriptionCount = 1;
+    vertexInputInfo.pVertexAttributeDescriptions = &attributeDescription;
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -505,7 +512,7 @@ void SwapChainData::createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLa
     // NB any other mode than fill requires enabling a GPU feature
     rasterizer.lineWidth = 1.0f; // larger than 1.0f requires the wideLines GPU feature
     rasterizer.cullMode = VK_CULL_MODE_BACK_BIT; // type of face culling to use (disable, cull front, cull back, cull both)
-    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; // vertex order for faces to be front facing (CW and CCW)
+    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE; // vertex order for faces to be front facing (CW and CCW)
     rasterizer.depthBiasEnable = VK_FALSE; // alter the depth by adding a constant or based onthe fragment's slope
     rasterizer.depthBiasConstantFactor = 0.0f; // Optional
     rasterizer.depthBiasClamp = 0.0f; // Optional

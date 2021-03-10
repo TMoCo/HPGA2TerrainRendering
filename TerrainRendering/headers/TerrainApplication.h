@@ -42,6 +42,8 @@ struct UniformBufferObject {
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 proj;
+    // changes to the vertices
+    float vertexStride;
     // flag for setting the colour to texture coordinates
     int uvToRgb; 
     int hasAmbient;
@@ -101,9 +103,11 @@ private:
 
     //--------------------------------------------------------------------//
     
-    void createVertexBuffer();
+    void createTerrainVertexBuffer();
+    void createAirplaneVertexBuffer();
 
-    void createIndexBuffer();
+    void createTerrainIndexBuffer();
+    void createAirplaneIndexBuffer();
 
     //--------------------------------------------------------------------//
 
@@ -155,10 +159,12 @@ private:
     Airplane airplane;
 
 
-    // scene vertex buffer
-    BufferData _bVertex;
-    // scene index buffer
-    BufferData _bIndex;
+    // scene vertex buffers
+    BufferData _bTerrainVertex;
+    BufferData _bAirplaneVertex;
+    // scene index buffers
+    BufferData _bTerrainIndex;
+    BufferData _bAirplaneIndex;
 
 
     // uniform buffers
@@ -201,6 +207,8 @@ private:
     float rotateZ = 0.0f;
 
     float zoom = 1.0f;
+
+    float vertexStride = 1.0f;
 
     bool centreModel     = false;
     bool enableDepthTest = true;
