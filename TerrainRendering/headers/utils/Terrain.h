@@ -14,7 +14,7 @@
 // inherits from Model for some member variables
 class Terrain : public Model {
 public:
-	// load a terrain model from a greyscale ppm file 
+	// generate a mesh of vertices from a height map
 	void generateTerrainMesh();
 
 	// load a height map (greyscale ppm image)
