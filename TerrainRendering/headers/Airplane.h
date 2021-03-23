@@ -11,14 +11,14 @@
 #include <utils/Texture.h>
 #include <utils/Camera.h>
 
-// POD
 class Airplane {
 
 public:
-	void createPlane(VulkanSetup* pVkSetup, const VkCommandPool& commandPool, const glm::vec3& position, const float& vel = 10.0f);
+	void createAirplane(VulkanSetup* pVkSetup, const VkCommandPool& commandPool, const glm::vec3& position, const float& vel = 10.0f);
+
+	void destroyAirplane();
 
 	void updatePosition(const float& deltaTime);
-	void updateOrientation();
 
 	// plane data
 	Model	model_;

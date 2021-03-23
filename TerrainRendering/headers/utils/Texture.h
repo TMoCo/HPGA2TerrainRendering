@@ -13,13 +13,13 @@
 
 class Texture {
 public:
-    void createTexture(VulkanSetup* pVkSetup, const std::string& path, const VkCommandPool& commandPool);
+    void createTexture(VulkanSetup* pVkSetup, const std::string& path, const VkCommandPool& commandPool, const VkFormat& format);
 
     void cleanupTexture();
 
 private:
 
-    void createTextureImage(const std::string& path, const VkCommandPool& commandPool);
+    void createTextureImage(const std::string& path, const VkCommandPool& commandPool, const VkFormat& format);
 
     void createTextureSampler();
 
@@ -29,6 +29,10 @@ public:
     // a texture
     VkImage textureImage;
     VkImageView textureImageView;
+
+    // some texture data
+    int height;
+    int width;
 
     VkSampler textureSampler; // lets us sample from an image, here the texture
     

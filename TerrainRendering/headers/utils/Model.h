@@ -15,12 +15,7 @@
 class Model {
 public:
     // for now only loads in an obj file
-	void loadModel(const std::string& path);
-
-public:
-    //
-    // object data
-    //
+    void loadModel(const std::string& path);
 
     glm::vec3 centreOfGravity;
 

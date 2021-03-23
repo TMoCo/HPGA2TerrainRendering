@@ -95,6 +95,9 @@
     <ClInclude Include="headers\utils\Orientation.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="headers\utils\Chunk.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="source\shaders\compile.bat">

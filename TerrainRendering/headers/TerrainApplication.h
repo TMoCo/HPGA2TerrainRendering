@@ -42,13 +42,11 @@ struct UniformBufferObject {
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 proj;
-    // changes to the vertices
+    // light data
+    glm::vec3 lightPos;
+    // changes to the terrain
     float vertexStride;
-    // flag for setting the colour to texture coordinates
-    int uvToRgb; 
-    int hasAmbient;
-    int hasDiffuse;
-    int hasSpecular;
+    alignas(16) int numChunks;
 };
 
 
@@ -99,7 +97,7 @@ private:
 
     void createCommandBuffers(std::vector<VkCommandBuffer>* commandBuffers, VkCommandPool& commandPool);
 
-    void recordGeometryCommandBuffer();
+    void recordGeometryCommandBuffer(size_t cmdBufferIndex);
 
     //--------------------------------------------------------------------//
     
@@ -172,8 +170,8 @@ private:
     BufferData _bAirplaneUniforms;
 
 
+    // descriptor data
     VkDescriptorPool descriptorPool;
-    // layout used to specify fragment uniforms, still required even if not used
     std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
     std::vector<VkDescriptorSet> terrainDescriptorSets; // descriptor set handles
     std::vector<VkDescriptorSet> airplaneDescriptorSets; // descriptor set handles
@@ -206,16 +204,12 @@ private:
     float rotateY = 0.0f;
     float rotateZ = 0.0f;
 
-    float zoom = 1.0f;
+    float scale = 1.0f;
 
     float vertexStride = 1.0f;
 
-    bool centreModel     = false;
-    bool enableDepthTest = true;
-    bool uvToRgb         = false;
-    bool enableAlbedo    = true;
-    bool enableDiffuse   = true;
-    bool enableSpecular  = true;
+    int numChunks = 10;
+
 
     bool shouldExit         = false;
     bool framebufferResized = false;

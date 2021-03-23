@@ -16,12 +16,12 @@
 //
 //////////////////////
 
-void Texture::createTexture(VulkanSetup* pVkSetup, const std::string& path, const VkCommandPool& commandPool) {
+void Texture::createTexture(VulkanSetup* pVkSetup, const std::string& path, const VkCommandPool& commandPool, const VkFormat& format) {
     vkSetup = pVkSetup;
     // create the image and its memory
-    createTextureImage(path, commandPool);
+    createTextureImage(path, commandPool, format);
     // create the image view
-    textureImageView = utils::createImageView(&vkSetup->device, textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+    textureImageView = utils::createImageView(&vkSetup->device, textureImage, format, VK_IMAGE_ASPECT_COLOR_BIT);
     // create the sampler
     createTextureSampler();
 }
@@ -42,15 +42,34 @@ void Texture::cleanupTexture() {
 //
 //////////////////////
 
-void Texture::createTextureImage(const std::string& path, const VkCommandPool& commandPool) {
-    // uses command buffer so should be called after create command pool
-    int texWidth, texHeight, texChannels;
+void Texture::createTextureImage(const std::string& path, const VkCommandPool& commandPool, const VkFormat& format) {
+    // get STBI format from input format
+    int stbiFormat = 0;
+    switch (format)
+    {
+        // GRAY
+    case VK_FORMAT_R8_SRGB:
+        stbiFormat = 1;
+        // GRAY ALPHA
+    case VK_FORMAT_R8G8_SRGB:
+        stbiFormat = 2;
+        // RGB
+    case VK_FORMAT_R8G8B8_SRGB:
+        stbiFormat = 3;
+        // RGB ALPHA
+    case VK_FORMAT_R8G8B8A8_SRGB:
+        stbiFormat = 4;
+    default:
+        break;
+    }
 
     // load the file 
+    int texChannels;
     // forces image to be loaded with an alpha channel, returns ptr to first element in an array of pixels
-    stbi_uc* pixels = stbi_load(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load(path.c_str(), &width, &height, &texChannels, stbiFormat);
     // laid out row by row with 4 bytes by pixel in case of STBI_rgb_alpha
-    VkDeviceSize imageSize = static_cast<VkDeviceSize>(texWidth * texHeight * 4);
+    VkDeviceSize imageSize = static_cast<VkDeviceSize>(width * height * stbiFormat);
+    // no pixels loaded
     if (!pixels) {
         throw std::runtime_error("failed to load texture image!");
     }
@@ -78,9 +97,9 @@ void Texture::createTextureImage(const std::string& path, const VkCommandPool& c
 
     // now create the image
     CreateImageData info{};
-    info.width = texWidth;
-    info.height = texHeight;
-    info.format = VK_FORMAT_R8G8B8A8_SRGB;
+    info.width = width;
+    info.height = height;
+    info.format = format;
     info.tiling = VK_IMAGE_TILING_OPTIMAL;
     info.usage = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
     info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -92,15 +111,15 @@ void Texture::createTextureImage(const std::string& path, const VkCommandPool& c
     TransitionImageLayoutData transitionData{};
     transitionData.image = &textureImage;
     transitionData.renderCommandPool = commandPool;
-    transitionData.format = VK_FORMAT_R8G8B8A8_SRGB;
+    transitionData.format = format;
     transitionData.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     transitionData.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     utils::transitionImageLayout(&vkSetup->device, &vkSetup->graphicsQueue, transitionData); // specify the initial layout VK_IMAGE_LAYOUT_UNDEFINED
-    utils::copyBufferToImage(&vkSetup->device, &vkSetup->graphicsQueue, commandPool, stagingBuffer.buffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+    utils::copyBufferToImage(&vkSetup->device, &vkSetup->graphicsQueue, commandPool, stagingBuffer.buffer, textureImage, static_cast<uint32_t>(width), static_cast<uint32_t>(height));
     // need another transfer to give the shader access to the texture
     transitionData.image = &textureImage;
     transitionData.renderCommandPool = commandPool;
-    transitionData.format = VK_FORMAT_R8G8B8A8_SRGB;
+    transitionData.format = format;
     transitionData.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     transitionData.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     utils::transitionImageLayout(&vkSetup->device, &vkSetup->graphicsQueue, transitionData);

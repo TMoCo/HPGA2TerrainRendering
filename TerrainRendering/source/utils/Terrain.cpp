@@ -1,10 +1,30 @@
 //
 // Terrain class definition
 //
+
 #include <fstream>
 
 #include <utils/Utils.h> // MAX_LINE
 #include <utils/Terrain.h>
+
+
+void Terrain::createTerrain(VulkanSetup* pVkSetup, const VkCommandPool& commandPool) {
+	// load the texture as a grayscale
+	heightMap.createTexture(pVkSetup, TERRAIN_HEIGHTS_PATH, commandPool, VK_FORMAT_R8G8B8A8_SRGB);
+	hSize = static_cast<size_t>(heightMap.width < heightMap.height ? heightMap.width : heightMap.height);
+	heights.resize(hSize * hSize); // resize vector just in case
+	generateTerrainMesh();
+	updateChuncks();
+}
+
+void Terrain::destroyTerrain() {
+	heightMap.cleanupTexture();
+}
+
+bool Terrain::updateChuncks() {
+	// loop through the chuncks 
+	return false;
+}
 
 void Terrain::generateTerrainMesh() {
 	if (heights.empty()) {
@@ -12,13 +32,12 @@ void Terrain::generateTerrainMesh() {
 	}
 
 	// by making the vector of vertices smaller, we can ignore the edge and corner cases heights
-	// which is tolerale as the result is negligable on large data sets and saves a lot of computation
+	// which is tolerable as the result is negligable on large data sets and saves some code branching
 	size_t vSize, iSize;
 	vSize = hSize;	// vertex vector size
 	iSize = hSize - 1; // index vector size
 	vertices.resize(vSize * vSize);
 	indices.resize(iSize * iSize * 6);
-
 
 	float stepScale = 2.0f; // we can change this later for scaling spacing between vertices
 	// create the vertices, the first one is in the -z -x position, we use the index size to centre the plane
@@ -38,19 +57,38 @@ void Terrain::generateTerrainMesh() {
 	// update the centre of gravity
 	centreOfGravity /= static_cast<float>(vertices.size());
 
-	// set the indices, looping over each grid cell
+	// set the indices, looping over each grid cell (contains two triangles)
 	for (size_t row = 0; row < iSize; row++) {
 		for (size_t col = 0; col < iSize; col++) {
 			// set the triangles in the grid cell
-			indices[(row * iSize + col) * 6 + 0] = static_cast<uint32_t>(row * vSize + col);
-			indices[(row * iSize + col) * 6 + 1] = static_cast<uint32_t>(row * vSize + col + vSize);
-			indices[(row * iSize + col) * 6 + 2] = static_cast<uint32_t>(row * vSize + col + 1);
-
-			indices[(row * iSize + col) * 6 + 3] = static_cast<uint32_t>(row * vSize + col + 1);
-			indices[(row * iSize + col) * 6 + 4] = static_cast<uint32_t>(row * vSize + col + vSize);
-			indices[(row * iSize + col) * 6 + 5] = static_cast<uint32_t>(row * vSize + col + vSize + 1);
+			size_t cellId = getCellIndex(row, col);
+			// triangle 1
+			indices[cellId + 0] = static_cast<uint32_t>(row * vSize + col);
+			indices[cellId + 1] = static_cast<uint32_t>(row * vSize + col + vSize);
+			indices[cellId + 2] = static_cast<uint32_t>(row * vSize + col + 1);
+			// triangle 2
+			indices[cellId + 3] = static_cast<uint32_t>(row * vSize + col + 1);
+			indices[cellId + 4] = static_cast<uint32_t>(row * vSize + col + vSize);
+			indices[cellId + 5] = static_cast<uint32_t>(row * vSize + col + vSize + 1);
 		}
 	}
+}
+
+void Terrain::generateChuncks() {
+	// terrain's atomic unit is the grid cell, consisting of 4 vertices. Using the index row and col (iSize = hSize - 1), we can
+	// get the indices that belong to a single cell. Cell indices are stored in a row major format, as can be seen in the generateMesh 
+	// method. We need to loop over each individual grid cell and assign it to a chunk. We need a function that computes the chunck id
+	// for a given grid cell index. Before that, we need to divide the terrain into a grid of chuncks. The simplest solution is 
+	// to divide the grid evenly.
+
+
+}
+
+size_t Terrain::getCellIndex(size_t row, size_t col) {
+	return (row * (hSize-1) + col) * 6;
+}
+
+size_t Terrain::getChunckIndex(size_t row, size_t col) {
 }
 
 void Terrain::loadHeights(const std::string& path) {
@@ -100,7 +138,7 @@ void Terrain::loadHeights(const std::string& path) {
 
 float Terrain::getHeight(const size_t& row, const size_t& col) {
 	// return the element in the vertex grid at position row, col
-	return heights[(row+1) * hSize + col + 1];
+	return heights[row * hSize + col];
 }
 
 glm::vec3 Terrain::computeCFD(const size_t& row, const size_t& col) {

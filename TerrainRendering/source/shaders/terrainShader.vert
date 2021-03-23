@@ -6,8 +6,12 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 model;
     mat4 view;
     mat4 proj;
+    vec3 lightPos;
     float vertexStride;
 } ubo;
+
+// height from a texture
+layout(binding = 1) uniform sampler2D heightSampler;
 
 // inputs specified in the vertex buffer attributes
 layout(location = 0) in float inHeight;
@@ -25,20 +29,29 @@ const int mapDim = 500;
 // main function, entry point to the shader
 void main() {
     int id = gl_VertexIndex;
-    // get the row the index belongs
+
+    // get the row and column the vertex belongs to
     int row = id / mapDim;
     int col = id % mapDim;
-    vec3 position = vec3((row - (mapDim / 2.0f)) * ubo.vertexStride, inHeight, (col - (mapDim / 2.0f)) * ubo.vertexStride);
-    // compute the position from the vertex index
+
+    // compute the texture coordinates of the vertex
+    fragTexCoord = vec2(row / float(mapDim), col / float(mapDim)); // divide by grid dimensionto get value from 0 to 1 
+
+    // compute the position from the vertex row and column in grid
+    vec3 position = vec3(
+        (row - (mapDim / 2.0f)) * ubo.vertexStride, 
+        texture(heightSampler, fragTexCoord).r * 255, 
+        (col - (mapDim / 2.0f)) * ubo.vertexStride);
+
     vec4 pos = ubo.proj * ubo.view * ubo.model * vec4(position, 1.0f);
     gl_Position = pos;
     fragPos = pos.xyz; // swizzle to get the vec3 xyz components of the shader
 
-    //fragNormal = (ubo.model * vec4(inNormal, 1.0f)).xyz;
     fragNormal = vec3(0.0f, 1.0f, 0.0f); // point upwards for now
 
-    fragMaterial = vec4(inHeight, inHeight, inHeight, 255) / 255;
-    //fragMaterial = vec4(1.0f, float(id / 250000.0f), 1.0f, 0.0f);
+    fragMaterial = vec4(texture(heightSampler, fragTexCoord).rgb, 1.0f);
+    //fragMaterial = vec4(fragTexCoord, 0.0f, 1.0f);
+
+    //fragMaterial = vec4(inHeight, inHeight, inHeight, 255) / 255;
     
-    fragTexCoord = vec2(0.0f, 0.0f); // no textures just yet
 }

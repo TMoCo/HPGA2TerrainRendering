@@ -38,6 +38,9 @@ void SwapChainData::cleanupSwapChainData() {
     vkDestroyPipeline(vkSetup->device, terrainPipeline, nullptr);
     vkDestroyPipelineLayout(vkSetup->device, terrainPipelineLayout, nullptr);
 
+    vkDestroyPipeline(vkSetup->device, airplanePipeline, nullptr);
+    vkDestroyPipelineLayout(vkSetup->device, airplanePipelineLayout, nullptr);
+
     // destroy the render passes
     vkDestroyRenderPass(vkSetup->device, renderPass, nullptr);
     vkDestroyRenderPass(vkSetup->device, imGuiRenderPass, nullptr);
