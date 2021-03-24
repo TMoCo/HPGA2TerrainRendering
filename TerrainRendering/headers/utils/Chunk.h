@@ -9,9 +9,12 @@
 
 class Chunk {
 public:
-	Chunk(size_t nIndices) : indices(nIndices) {}
+	Chunk() : chunkOffset(0) {}
+
+	glm::vec3 centrePoint;
 
 	std::vector<uint32_t> indices; // chunk's vertex indices
+	size_t chunkOffset; // offset into the indices when sorted by chunk
 };
 
 #endif // !CHUNK_H

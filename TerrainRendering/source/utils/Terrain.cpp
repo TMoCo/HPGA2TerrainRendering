@@ -14,16 +14,25 @@ void Terrain::createTerrain(VulkanSetup* pVkSetup, const VkCommandPool& commandP
 	hSize = static_cast<size_t>(heightMap.width < heightMap.height ? heightMap.width : heightMap.height);
 	heights.resize(hSize * hSize); // resize vector just in case
 	generateTerrainMesh();
-	updateChuncks();
+	generateChunks();
+	sortIndicesByChunk();
 }
 
 void Terrain::destroyTerrain() {
 	heightMap.cleanupTexture();
 }
 
-bool Terrain::updateChuncks() {
-	// loop through the chuncks 
-	return false;
+void Terrain::updateVisibleChunks(const Camera& cam) {
+	visible.clear();
+	// loop through the chunks, get those that are currently visible
+	for (size_t i = 0; i < chunks.size(); i++) {
+		// check the angle between the direction from centre point to camera position, with the view direction
+		glm::vec3 toCamera = glm::normalize(chunks[i].centrePoint - cam.position_);
+		// compute the dot product
+		float dot = std::abs(glm::dot(toCamera, cam.position_));
+		// depending on angle, put in visible or not
+		visible.insert(std::make_pair<int, Chunk*>(int(i), chunks.data() + i));
+	}
 }
 
 void Terrain::generateTerrainMesh() {
@@ -43,8 +52,8 @@ void Terrain::generateTerrainMesh() {
 	// create the vertices, the first one is in the -z -x position, we use the index size to centre the plane
 	glm::vec3 startPos(iSize / -2.0f, 0.0f, iSize / -2.0f);
 
-	for (size_t row = 1; row < vSize - 1; row++) {
-		for (size_t col = 1; col < vSize - 1; col++) {
+	for (size_t row = 0; row < vSize; row++) {
+		for (size_t col = 0; col < vSize; col++) {
 			// initialise empty vertex and set its position
 			Vertex vertex{};
 			vertex.pos = startPos * stepScale + glm::vec3(col * stepScale, getHeight(row, col), row * stepScale);
@@ -54,14 +63,62 @@ void Terrain::generateTerrainMesh() {
 			centreOfGravity += vertex.pos;
 		}
 	}
+
 	// update the centre of gravity
 	centreOfGravity /= static_cast<float>(vertices.size());
 
+	sortIndicesByCell();
+}
+
+void Terrain::generateChunks() {
+	// terrain's atomic unit is the grid cell, consisting of 4 vertices. Using the index row and col (iSize = hSize - 1), we can
+	// get the indices that belong to a single cell. Cell indices are stored in a row major format, as can be seen in the generateMesh 
+	// method. We need to loop over each individual grid cell and assign it to a chunk. We need a function that computes the chunk id
+	// for a given grid cell index. Before that, we need to divide the terrain into a grid of chunks. The simplest solution is 
+	// to divide the grid evenly. If the grid cannot be divided evenly, then the chunks in the last row and column will have a smaller number 
+	// of indices.
+	size_t iSize = hSize - 1; // hsize should always be greater than 1
+
+	// if the cells are not divisible by num chunks, add one to chunk size where remainders are accumulated
+	if (!(iSize % numChunks)) {
+		numChunks++;
+	}
+
+	// resize chunk grid container
+	chunks.resize(numChunks * numChunks);
+
+	// loop over each grid cell index
+	for (size_t row = 0; row < iSize; row++) {
+		for (size_t col = 0; col < iSize; col++) {
+			// get the index of the chunk the grid cell belongs to
+			int chunkIndex = getChunkIndexFromCellIndex(row, col);
+			auto* indices = &(chunks[chunkIndex].indices); // pointer to the indices in a chunk
+			auto cell = getIndicesCell(row, col);		   // contains the indices in a cell
+			// update the centre point of the chunck
+			for (auto& index : cell) {
+				chunks[chunkIndex].centrePoint += vertices[index].pos;
+			}
+			indices->insert(indices->end(), cell.begin(), cell.end()); // append the cell indices to chunk's indices.
+		}
+	}
+
+	// each chunk now has its vertices, we can determine its offset and average the centrePoint
+	size_t offset = 0;
+	for (auto& chunk : chunks) {
+		chunk.centrePoint /= static_cast<float>(chunk.indices.size());
+		chunk.chunkOffset = offset; // chunk offset used in draw commands
+		offset += chunk.indices.size();
+	}
+}
+
+void Terrain::sortIndicesByCell() {
+	size_t vSize = hSize;
+	size_t iSize = hSize - 1;
 	// set the indices, looping over each grid cell (contains two triangles)
 	for (size_t row = 0; row < iSize; row++) {
 		for (size_t col = 0; col < iSize; col++) {
 			// set the triangles in the grid cell
-			size_t cellId = getCellIndex(row, col);
+			size_t cellId = getIndicesCellFirstIndex(row, col); // id of the first index in the grid cell
 			// triangle 1
 			indices[cellId + 0] = static_cast<uint32_t>(row * vSize + col);
 			indices[cellId + 1] = static_cast<uint32_t>(row * vSize + col + vSize);
@@ -74,21 +131,39 @@ void Terrain::generateTerrainMesh() {
 	}
 }
 
-void Terrain::generateChuncks() {
-	// terrain's atomic unit is the grid cell, consisting of 4 vertices. Using the index row and col (iSize = hSize - 1), we can
-	// get the indices that belong to a single cell. Cell indices are stored in a row major format, as can be seen in the generateMesh 
-	// method. We need to loop over each individual grid cell and assign it to a chunk. We need a function that computes the chunck id
-	// for a given grid cell index. Before that, we need to divide the terrain into a grid of chuncks. The simplest solution is 
-	// to divide the grid evenly.
-
-
+void Terrain::sortIndicesByChunk() {
+	indices.clear();
+	indices.resize((hSize-1) * (hSize - 1) * 6);
+	size_t currentIndex = 0;
+	// loop over each chunk
+	for (auto& chunk : std::vector<Chunk>(chunks.begin(), chunks.begin() + 40)) {
+		// in the chunk order, set the indices 
+		for (size_t i = 0; i < chunk.indices.size(); i++) {
+			indices[currentIndex] = chunk.indices[i];
+			currentIndex++;
+		}
+	}
 }
 
-size_t Terrain::getCellIndex(size_t row, size_t col) {
+int Terrain::getIndicesCellFirstIndex(int row, int col) {
+	// take care of clamping values out of range for us
+	row = row < 0 ? 0 : row >= hSize - 1 ? hSize - 2 : row;
+	col = col < 0 ? 0 : col >= hSize - 1 ? hSize - 2 : col;
+	// return the first index of a grid cell of size vertices
 	return (row * (hSize-1) + col) * 6;
 }
 
-size_t Terrain::getChunckIndex(size_t row, size_t col) {
+std::vector<uint32_t> Terrain::getIndicesCell(int row, int col) {
+	int index = getIndicesCellFirstIndex(row, col);
+	return std::vector<uint32_t>(std::next(indices.begin(), index), std::next(indices.begin(), index + 6));
+}
+
+int Terrain::getChunkIndexFromCellIndex(int row, int col) {
+	// the row and col inputs are divided by the number of chunks, to determine which chunk they are in using integer division
+	row = row / static_cast<float>(hSize - 1) * numChunks;
+	col = col / static_cast<float>(hSize - 1) * numChunks;
+	int index = row * numChunks + col;
+	return index;
 }
 
 void Terrain::loadHeights(const std::string& path) {
@@ -136,12 +211,15 @@ void Terrain::loadHeights(const std::string& path) {
 	}
 }
 
-float Terrain::getHeight(const size_t& row, const size_t& col) {
+float Terrain::getHeight(int row, int col) {
+	// clamp values out of range
+	row = row < 0 ? 0 : row >= hSize ? hSize - 1 : row;
+	col = col < 0 ? 0 : col >= hSize ? hSize - 1 : col;
 	// return the element in the vertex grid at position row, col
 	return heights[row * hSize + col];
 }
 
-glm::vec3 Terrain::computeCFD(const size_t& row, const size_t& col) {
+glm::vec3 Terrain::computeCFD(int row, int col) {
 	// get the neighbouring vertices' x and z average around the desired vertex
 	glm::vec3 normal(
 		(getHeight(row, col - 1) - getHeight(row, col + 1)) / 2.0f,

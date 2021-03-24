@@ -77,7 +77,7 @@ void TerrainApplication::initVulkan() {
     // create the descriptor set layout and render command pool BEFORE the swap chain
     // these do not change over the lifetime of the application
     createDescriptorSetLayout();
-    createCommandPool(&renderCommandPool, 0);
+    createCommandPool(&renderCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     createCommandPool(&imGuiCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
     //
@@ -524,7 +524,7 @@ void TerrainApplication::recordGeometryCommandBuffer(size_t cmdBufferIndex) {
     // the following struct used as argument specifying details about the usage of specific command buffer
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags            = 0; // how we are going to use the command buffer
+    beginInfo.flags            = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // how we are going to use the command buffer
     beginInfo.pInheritanceInfo = nullptr; // relevant to secondary comnmand buffers
 
     // creating implicilty resets the command buffer if it was already recorded once, cannot append
@@ -571,9 +571,12 @@ void TerrainApplication::recordGeometryCommandBuffer(size_t cmdBufferIndex) {
     // bind the uniform descriptor sets
     vkCmdBindDescriptorSets(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.terrainPipelineLayout, 0, 1, &terrainDescriptorSets[cmdBufferIndex], 0, nullptr);
 
-    // command to draw the vertices in the vertex buffer
-    //vkCmdDraw(renderCommandBuffers[i], static_cast<uint32_t>(terrain.vertices.size()), 1, 0, 0);
-    vkCmdDrawIndexed(renderCommandBuffers[cmdBufferIndex], static_cast<uint32_t>(terrain.indices.size()), 1, 0, 0, 0);
+    // loop over the visible chuncks and draw it
+
+    for (auto& chunk : terrain.chunks) {
+        vkCmdDrawIndexed(renderCommandBuffers[cmdBufferIndex], chunk.indices.size(), 1, 0, chunk.chunkOffset, 0);
+    }
+    
 
     //
     // DRAW AIRPLANE
@@ -582,7 +585,6 @@ void TerrainApplication::recordGeometryCommandBuffer(size_t cmdBufferIndex) {
     // bind to a new pipeline to draw the plane
     vkCmdBindPipeline(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.airplanePipeline);
     vkCmdBindVertexBuffers(renderCommandBuffers[cmdBufferIndex], 0, 1, &_bAirplaneVertex.buffer, &offset);
-    //vkCmdBindIndexBuffer(renderCommandBuffers[i], _bIndex.buffer, 0, VK_INDEX_TYPE_UINT32); // index offset is in bytes
     vkCmdBindIndexBuffer(renderCommandBuffers[cmdBufferIndex], _bAirplaneIndex.buffer, 0, VK_INDEX_TYPE_UINT32); // index offset is in bytes
     vkCmdBindDescriptorSets(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.airplanePipelineLayout, 0, 1, &airplaneDescriptorSets[cmdBufferIndex], 0, nullptr);
 
@@ -956,17 +958,15 @@ void TerrainApplication::drawFrame() {
     // update the unifrom buffer before submitting
     updateUniformBuffer(imageIndex);
 
-    // get the chuncks to draw, change the index buffer if the chuncks are different
-    if (terrain.updateChuncks()) {
-        _bTerrainIndex.cleanupBufferData(vkSetup.device); // delete old buffer first
-        createTerrainIndexBuffer();
-        recordGeometryCommandBuffer(imageIndex);
-    }
+    // get the chunks to draw
+    terrain.updateVisibleChunks(airplane.camera_);
+
+    // record the geometry command buffer with the new indices
+    recordGeometryCommandBuffer(imageIndex);
 
     // update the UI, may change at every frame so this is where it is recorded, unlike the geometry which executes the same commands 
     // hence it is recorded once at the start 
     renderUI();
-
 
     // the two command buffers, for geometry and UI
     std::array<VkCommandBuffer, 2> submitCommandBuffers = { renderCommandBuffers[imageIndex], imGuiCommandBuffers[imageIndex] };
