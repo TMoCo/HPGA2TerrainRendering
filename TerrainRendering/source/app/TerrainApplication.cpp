@@ -106,11 +106,6 @@ void TerrainApplication::initVulkan() {
     createIndexBuffer(&terrain.indices, &bTerrainIndex);
     createIndexBuffer(&airplane.model.indices, &bAirplaneIndex);
 
-    //createTerrainVertexBuffer();
-    //createAirplaneVertexBuffer();
-
-    //createTerrainIndexBuffer();
-    //createAirplaneIndexBuffer();
 
     //
     // STEP 5: create the vulkan data for accessing and using the app's data
@@ -480,7 +475,7 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
     airplaneUbo.model = glm::translate(glm::mat4(1.0f), airplane.camera.position);  // translate the plane to the camera
     airplaneUbo.model = glm::translate(airplaneUbo.model, airplane.camera.orientation.front * 10.0f); // translate the plane in front of the camera
     airplaneUbo.model = airplaneUbo.model * airplane.camera.orientation.toWorldSpaceRotation(); // rotate the plane based on the camera's orientation
-    //airplaneUbo.model = glm::scale(airplaneUbo.model, glm::vec3(0.4f, 0.4f, 0.4f)); // scale the plane to an acceptable size
+    airplaneUbo.model = glm::scale(airplaneUbo.model, glm::vec3(0.4f, 0.4f, 0.4f)); // scale the plane to an acceptable size
 
     airplaneUbo.view = view;
     

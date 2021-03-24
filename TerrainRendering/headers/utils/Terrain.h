@@ -45,7 +45,7 @@ private:
 	// returns a height at a given row and col, with offsets if specified
 	float getHeight (int row, int col);
 
-	Chunk* getChunk(int row, int col);
+	Chunk* getChunk(int row, int col); // return pointer to chunck data
 
 	// returns the first index of a grid cell
 	int getIndicesCellFirstIndex(int row, int col);
@@ -67,7 +67,7 @@ public:
 	std::map<int, Chunk*> visible; // a map containing all currently visible chunks
 	
 	int numChunks;		           // number of chunks
-	int hSize;				   // the size of a row / column in the height map
+	int hSize;				       // the size of a row / column in the height map
 	Texture heightMap;			   // the height map texture
 };
 

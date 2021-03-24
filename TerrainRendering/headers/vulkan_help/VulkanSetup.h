@@ -4,10 +4,12 @@
 // application, such as the instance, the device, and the surface (although this is the case
 // for single windowed applications, I assume support for multiple windows would require
 // multiple surfaces). An application will have to use this class's member variables to
-// run, the latter are NOT initiated when the object is created but when the setupVulkan function
+// run, the latter are NOT initiated when the object is created but when the initSetup function
 // is called. A GLFW window needs to be initialised first and passed as an argument to the
 // function so that vulkan can work with it. A reference of the window is kept as a pointer for convenience
 //
+
+// TODO: this kind of class would make some sense as a singleton class
 
 #ifndef VULKAN_SETUP_H
 #define VULKAN_SETUP_H
@@ -99,18 +101,6 @@ private:
     bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 
     void createLogicalDevice();
-    
-    //
-    // Swap chain setup
-    //
-
-    void createSwapChain();
-
-    VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-
-    VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
-
-    VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
     //////////////////////
     //
@@ -161,7 +151,6 @@ public:
     //
 
     bool setupComplete = false;
-
 };
 
 #endif // !VULKAN_SETUP_H

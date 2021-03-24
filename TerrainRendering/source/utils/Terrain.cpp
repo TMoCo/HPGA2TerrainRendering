@@ -10,7 +10,7 @@
 
 void Terrain::createTerrain(VulkanSetup* pVkSetup, const VkCommandPool& commandPool) {
 	// load the texture as a grayscale
-	heightMap.createTexture(pVkSetup, TERRAIN_HEIGHTS_PATH, commandPool, VK_FORMAT_R8G8B8A8_SRGB);
+	heightMap.createTexture(pVkSetup, TERRAIN_HEIGHTS_PATHS[1], commandPool, VK_FORMAT_R8G8B8A8_SRGB);
 	hSize = heightMap.width < heightMap.height ? heightMap.width : heightMap.height;
 	heights.resize(hSize * hSize); // resize vector just in case
 
@@ -58,8 +58,8 @@ void Terrain::generateTerrainMesh() {
 	// create the vertices, the first one is in the -z -x position, we use the index size to centre the plane
 	glm::vec3 startPos(vSize / -2.0f, 0.0f, vSize / -2.0f);
 
-	for (size_t row = 0; row < vSize; row++) {
-		for (size_t col = 0; col < vSize; col++) {
+	for (int row = 0; row < vSize; row++) {
+		for (int col = 0; col < vSize; col++) {
 			// initialise empty vertex and set its position
 			Vertex vertex{};
 			vertex.pos = startPos + glm::vec3(col, getHeight(row, col), row);
@@ -94,8 +94,8 @@ void Terrain::generateChunks() {
 	chunks.resize(numChunks * numChunks);
 
 	// loop over each grid cell index
-	for (size_t row = 0; row < iSize; row++) {
-		for (size_t col = 0; col < iSize; col++) {
+	for (int row = 0; row < iSize; row++) {
+		for (int col = 0; col < iSize; col++) {
 			// get the index of the chunk the grid cell belongs to
 			int chunkIndex = getChunkIndexFromCellIndex(row, col);
 			auto* indices = &(chunks[chunkIndex].indices); // pointer to the indices in a chunk
@@ -123,8 +123,8 @@ void Terrain::sortIndicesByCell() {
 	size_t vSize = hSize;
 	size_t iSize = hSize - 1;
 	// set the indices, looping over each grid cell (contains two triangles)
-	for (size_t row = 0; row < iSize; row++) {
-		for (size_t col = 0; col < iSize; col++) {
+	for (int row = 0; row < iSize; row++) {
+		for (int col = 0; col < iSize; col++) {
 			// set the triangles in the grid cell
 			size_t cellId = getIndicesCellFirstIndex(row, col); // id of the first index in the grid cell
 			// triangle 1
@@ -170,11 +170,9 @@ std::vector<uint32_t> Terrain::getIndicesCell(int row, int col) {
 }
 
 int Terrain::getChunkIndexFromCellIndex(int row, int col) {
-	// the row and col inputs are divided by the number of chunks, to determine which chunk they are in using integer division
-	row = row / static_cast<float>(hSize - 1) * numChunks;
-	col = col / static_cast<float>(hSize - 1) * numChunks;
-	int index = row * numChunks + col;
-	return index;
+	// the inputs, row and col of a grid cell, are normalised to determine which chunk they are in 
+	return static_cast<int>(row / static_cast<float>(hSize - 1) * numChunks) * numChunks // chunk row
+			+ static_cast<int>(col / static_cast<float>(hSize - 1) * numChunks);		 // chunk col
 }
 
 void Terrain::loadHeights(const std::string& path) {
@@ -198,7 +196,7 @@ void Terrain::loadHeights(const std::string& path) {
 	if ((vertRows <= 0) || (vertCols <= 0))
 		throw std::runtime_error("invalid image dimensions!");
 	// take the smallest of the image dimensions and use that as the size for a rectangular grid of heights
-	hSize = (vertRows >= vertCols) ? vertCols : vertRows;
+	hSize = static_cast<int>(vertRows >= vertCols ? vertCols : vertRows);
 
 	// resize the heights vector accordingly
 	heights.resize(hSize * hSize);
