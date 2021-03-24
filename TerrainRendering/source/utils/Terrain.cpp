@@ -30,10 +30,10 @@ void Terrain::updateVisibleChunks(const Camera& cam, float tolerance, float vert
 	for (size_t i = 0; i < chunks.size(); i++) {
 		chunks[i].centrePoint *= vertexStride;   // apply current vertex stride
 		// check the angle between the direction from centre point to camera position, with the view direction
-		glm::vec3 toCamera = glm::normalize(chunks[i].centrePoint - cam.position_);
+		glm::vec3 toCamera = glm::normalize(chunks[i].centrePoint - cam.position);
 		
 		// compute the dot product
-		float dot = glm::dot(cam.orientation_.front, toCamera);
+		float dot = glm::dot(cam.orientation.front, toCamera);
 		
 		// depending on angle, put in visible or not
 		if (dot > tolerance) {
@@ -242,9 +242,4 @@ glm::vec3 Terrain::computeCFD(int row, int col) {
 		255.0f,
 		(getHeight(row - 1, col) - getHeight(row + 1, col)) / 2.0f);
 	return normal;
-}
-
-glm::vec3 Terrain::removeY(glm::vec3 vec) {
-	vec.y = 0;
-	return vec;
 }

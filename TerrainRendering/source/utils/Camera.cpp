@@ -8,48 +8,48 @@
 #include <glm/gtx/euler_angles.hpp>
 
 glm::mat4 Camera::getViewMatrix() {
-    return glm::lookAt(position_, position_ + orientation_.front, orientation_.up); // look at in front of the camera
+    return glm::lookAt(position, position + orientation.front, orientation.up); // look at in front of the camera
 }
 
 glm::mat4 Camera::getViewMatrix(const glm::vec3& pos) {
-    return glm::lookAt(position_, glm::normalize(pos - position_), orientation_.up); // look at a certain point
+    return glm::lookAt(position, glm::normalize(pos - position), orientation.up); // look at a certain point
 }
 
 Orientation Camera::getOrientation() {
-    return orientation_;
+    return orientation;
 }
 
 void Camera::processInput(CameraMovement camMove, float deltaTime) {
-    pitch_ = roll_ = yaw_ = 0.0f; // reset pitch yaw and roll
+    pitch = roll = yaw = 0.0f; // reset pitch yaw and roll
     if (camMove == CameraMovement::PitchUp)
-        pitch_ = angleChangeSpeed * deltaTime;
+        pitch = angleChangeSpeed * deltaTime;
     if (camMove == CameraMovement::PitchDown)
-        pitch_ = -angleChangeSpeed * deltaTime;
+        pitch = -angleChangeSpeed * deltaTime;
     if (camMove == CameraMovement::RollRight)
-        roll_ = angleChangeSpeed * deltaTime;
+        roll = angleChangeSpeed * deltaTime;
     if (camMove == CameraMovement::RollLeft)
-        roll_ = -angleChangeSpeed * deltaTime;
+        roll = -angleChangeSpeed * deltaTime;
     if (camMove == CameraMovement::YawLeft)
-        yaw_ = angleChangeSpeed * deltaTime;
+        yaw = angleChangeSpeed * deltaTime;
     if (camMove == CameraMovement::YawRight)
-        yaw_ = -angleChangeSpeed * deltaTime;
+        yaw = -angleChangeSpeed * deltaTime;
     if (camMove == CameraMovement::Left)
-        position_ -= orientation_.right * deltaTime * positionChangeSpeed;
+        position -= orientation.right * deltaTime * positionChangeSpeed;
     if (camMove == CameraMovement::Right)
-        position_ += orientation_.right * deltaTime * positionChangeSpeed;
+        position += orientation.right * deltaTime * positionChangeSpeed;
     if (camMove == CameraMovement::Forward)
-        position_ += orientation_.front * deltaTime * positionChangeSpeed;
+        position += orientation.front * deltaTime * positionChangeSpeed;
     if (camMove == CameraMovement::Backward)
-        position_ -= orientation_.front * deltaTime * positionChangeSpeed;
+        position -= orientation.front * deltaTime * positionChangeSpeed;
     // update the camera accordingly
     updateCamera();
 }
 
 void Camera::updateCamera() {
     // we need to update the camera's axes: get the rotation from the camera input
-    glm::quat rotation = glm::angleAxis(glm::radians(yaw_), orientation_.up) * 
-                         glm::angleAxis(glm::radians(pitch_), orientation_.right) *
-                         glm::angleAxis(glm::radians(roll_), orientation_.front);
+    glm::quat rotation = glm::angleAxis(glm::radians(yaw), orientation.up) * 
+                         glm::angleAxis(glm::radians(pitch), orientation.right) *
+                         glm::angleAxis(glm::radians(roll), orientation.front);
     // apply the rotation to the current orientation
-    orientation_.applyRotation(rotation);
+    orientation.applyRotation(rotation);
 }

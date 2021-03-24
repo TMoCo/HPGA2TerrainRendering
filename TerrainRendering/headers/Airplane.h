@@ -21,12 +21,12 @@ public:
 	void updatePosition(const float& deltaTime);
 
 	// plane data
-	Model	model_;
-	Texture texture_;
-	Camera	camera_;
-	Orientation orientation_;
+	Model	model;
+	Texture texture;
+	Camera	camera;
+	Orientation orientation;
 
-	float velocity_;
+	float velocity;
 };
 
 

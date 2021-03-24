@@ -191,10 +191,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="source\shaders\compile.bat" />
-    <None Include="source\shaders\frag.spv" />
     <None Include="source\shaders\shader.frag" />
     <None Include="source\shaders\shader.vert" />
-    <None Include="source\shaders\vert.spv" />
+    <None Include="source\shaders\terrainGPU.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

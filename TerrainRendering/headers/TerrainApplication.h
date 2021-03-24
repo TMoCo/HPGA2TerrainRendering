@@ -100,13 +100,10 @@ private:
     void recordGeometryCommandBuffer(size_t cmdBufferIndex);
 
     //--------------------------------------------------------------------//
+    template<class T>
+    void createVertexBuffer(std::vector<T>* vertices, BufferData* bufferData);
+    void createIndexBuffer(std::vector<uint32_t>* indices, BufferData* bufferData);
     
-    void createTerrainVertexBuffer();
-    void createAirplaneVertexBuffer();
-
-    void createTerrainIndexBuffer();
-    void createAirplaneIndexBuffer();
-
     //--------------------------------------------------------------------//
 
     void recreateVulkanData();
@@ -161,16 +158,16 @@ private:
 
 
     // scene vertex buffers
-    BufferData _bTerrainVertex;
-    BufferData _bAirplaneVertex;
+    BufferData bTerrainVertex;
+    BufferData bAirplaneVertex;
     // scene index buffers
-    BufferData _bTerrainIndex;
-    BufferData _bAirplaneIndex;
+    BufferData bTerrainIndex;
+    BufferData bAirplaneIndex;
 
 
     // uniform buffers
-    BufferData _bTerrainUniforms;
-    BufferData _bAirplaneUniforms;
+    BufferData bTerrainUniforms;
+    BufferData bAirplaneUniforms;
 
 
     // descriptor data

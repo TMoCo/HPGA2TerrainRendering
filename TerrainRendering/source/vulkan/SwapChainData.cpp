@@ -30,11 +30,15 @@ void SwapChainData::initSwapChainData(VulkanSetup* pVkSetup, VkDescriptorSetLayo
     createImGuiRenderPass();
     // followed by the graphics pipeline
     createTerrainPipeline(&descriptorSetLayout[0]);
+    createTerrainPipelineGPU(&descriptorSetLayout[0]);
     createAirplanePipeline(&descriptorSetLayout[1]);
 }
 
 void SwapChainData::cleanupSwapChainData() {
     // destroy pipeline and related data
+    vkDestroyPipeline(vkSetup->device, terrainPipelineGPU, nullptr);
+    vkDestroyPipelineLayout(vkSetup->device, terrainPipelineLayoutGPU, nullptr);
+
     vkDestroyPipeline(vkSetup->device, terrainPipeline, nullptr);
     vkDestroyPipelineLayout(vkSetup->device, terrainPipelineLayout, nullptr);
 
@@ -412,55 +416,48 @@ void SwapChainData::createImGuiRenderPass() {
 
 //////////////////////
 //
-// The graphics pipeline
+// The graphics pipelines
 //
 //////////////////////
 
 void SwapChainData::createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLayout) {
-    auto vertShaderCode = Shader::readFile(TERRAIN_SHADER_VERT_PATH);
-    auto fragShaderCode = Shader::readFile(TERRAIN_SHADER_FRAG_PATH);
-
-
-    // compiling and linking of shaders doesnt happen until the pipeline is created, they are also destroyed along
-    // with the pipeline so we don't need them to be member variables of the class
-    VkShaderModule vertShaderModule = Shader::createShaderModule(vkSetup, vertShaderCode);
-    VkShaderModule fragShaderModule = Shader::createShaderModule(vkSetup, fragShaderCode);
+    VkShaderModule vertShaderModule = Shader::createShaderModule(vkSetup, Shader::readFile(TERRAIN_SHADER_VERT_PATH));
+    VkShaderModule fragShaderModule = Shader::createShaderModule(vkSetup, Shader::readFile(TERRAIN_SHADER_FRAG_PATH));
 
     // need to assign shaders to stages in the pipeline
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
     vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    // for the vertex shader, we'll asign it to the vertex stage
     vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    // set the vertex shader
     vertShaderStageInfo.module = vertShaderModule;
     vertShaderStageInfo.pName = "main"; // the entry point, or the function to invoke in the shader
-    // vertShaderStageInfo.pSpecializationInfo : can specify values for shader constants. Can use a singleshader module 
-    // whose behaviour can be configured at pipeline creation by specifying different values for the constants used 
-    // better than at render time because compiler can optimise if statements dependent on these values. Watch this space
+    // vertShaderStageInfo.pSpecializationInfo : can specify values for shader constants, will use later at some point
 
     // similar gist as vertex shader for fragment shader
     VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
     fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT; // assign to the fragment stage
     fragShaderStageInfo.module = fragShaderModule;
-    fragShaderStageInfo.pName = "main"; // also use main as the entry point
+    fragShaderStageInfo.pName = "main";
 
-    // use this array for future reference
     VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
-    // format of the vertex data, describe the binding and the attributes
+    // setup pipeline to accept vertex data
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
+    // vertex data format (binding and attributes)
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    // because vertex data is in the shader, we don't have to specify any binding or attribute descriptions. We would otherwise
-    // need arrays of structs that describe the details for loading vertex data    
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    // tells what kind of geometry to draw from the vertices
     inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     inputAssembly.primitiveRestartEnable = VK_FALSE; // can break up lines and triangles in strip using special id 0xFFF or 0xFFFFFFF
 
-    // the region of the framebuffer of output that will be rendered to ... usually always (0,0) to (width,height)
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -469,14 +466,10 @@ void SwapChainData::createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLa
     viewport.minDepth = 0.0f; // in range [0,1]
     viewport.maxDepth = 1.0f; // in range [0,1]
 
-    // viewport describes transform from image to framebuffer, but scissor rectangles defiles wich regions pixels are actually stored
-    // pixels outisde are ignored by the rasteriser. Here the scissor covers the entire framebuffer
     VkRect2D scissor{};
     scissor.offset = { 0, 0 };
     scissor.extent = extent;
 
-    // once viewport and scissor have been defined, they need to be combined. Can use multiple viewports and scissors on some GPUs
-    // (requires enqbling a GPU feature, so changes the logical device creation)
     VkPipelineViewportStateCreateInfo viewportState{};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewportState.viewportCount = 1;
@@ -484,8 +477,6 @@ void SwapChainData::createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLa
     viewportState.scissorCount = 1;
     viewportState.pScissors = &scissor;
 
-    // rateriser takes geometry and turns it into fragments. Also performs depth test, face culling and scissor test
-    // can be configured to output wireframe, full polygon 
     VkPipelineRasterizationStateCreateInfo rasterizer{};
     rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rasterizer.depthClampEnable = VK_FALSE; // if true,  fragments outside of near and far are clamped rather than discarded
@@ -500,8 +491,6 @@ void SwapChainData::createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLa
     rasterizer.depthBiasClamp = 0.0f; // Optional
     rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
 
-    // multisampling is a way to perform antialiasing, less expensive than rendering a high res poly then donwscaling
-    // also requires enabling a GPU feature (in logical device creation) so disable for now
     VkPipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisampling.sampleShadingEnable = VK_FALSE;
@@ -510,9 +499,6 @@ void SwapChainData::createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLa
     multisampling.pSampleMask = nullptr; // Optional
     multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
     multisampling.alphaToOneEnable = VK_FALSE; // Optional
-
-    // could also set depth and stencil testing, but not needed now so it can stay a nullptr (already set
-    // thanks to the {} when creating the struct)
 
     // after fragment shader has returned a result, needs to be combined with what is already in framebuffer
     // can either mix old and new values or combine with bitwise operation
@@ -549,7 +535,6 @@ void SwapChainData::createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLa
     depthStencil.front = {}; // Optional
     depthStencil.back = {}; // Optional
 
-
     // create the pipeline layout, where uniforms are specified, also push constants another way of passing dynamic values
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -583,6 +568,153 @@ void SwapChainData::createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLa
     pipelineInfo.subpass = 0; // index of desired sub pass where pipeline will be used
 
     if (vkCreateGraphicsPipelines(vkSetup->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &terrainPipeline) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create graphics pipeline!");
+    }
+
+    // destroy the shader modules, as we don't need them once the shaders have been compiled
+    vkDestroyShaderModule(vkSetup->device, fragShaderModule, nullptr);
+    vkDestroyShaderModule(vkSetup->device, vertShaderModule, nullptr);
+}
+
+void SwapChainData::createTerrainPipelineGPU(VkDescriptorSetLayout* descriptorSetLayout) {
+    VkShaderModule vertShaderModule = Shader::createShaderModule(vkSetup, Shader::readFile(TERRAIN_GPU_SHADER_VERT_PATH));
+    VkShaderModule fragShaderModule = Shader::createShaderModule(vkSetup, Shader::readFile(TERRAIN_SHADER_FRAG_PATH)); // reuse same fragment shader here
+
+    // need to assign shaders to stages in the pipeline
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertShaderStageInfo.module = vertShaderModule;
+    vertShaderStageInfo.pName = "main"; // the entry point, or the function to invoke in the shader
+    // vertShaderStageInfo.pSpecializationInfo : can specify values for shader constants, will use later at some point
+
+    // similar gist as vertex shader for fragment shader
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT; // assign to the fragment stage
+    fragShaderStageInfo.module = fragShaderModule;
+    fragShaderStageInfo.pName = "main"; 
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.primitiveRestartEnable = VK_FALSE; // can break up lines and triangles in strip using special id 0xFFF or 0xFFFFFFF
+
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = (float)extent.width; // don't use WIDTH and HEIGHT as the swap chain may have differing values
+    viewport.height = (float)extent.height;
+    viewport.minDepth = 0.0f; // in range [0,1]
+    viewport.maxDepth = 1.0f; // in range [0,1]
+
+    VkRect2D scissor{};
+    scissor.offset = { 0, 0 };
+    scissor.extent = extent;
+
+    VkPipelineViewportStateCreateInfo viewportState{};
+    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.viewportCount = 1;
+    viewportState.pViewports = &viewport;
+    viewportState.scissorCount = 1;
+    viewportState.pScissors = &scissor;
+
+    VkPipelineRasterizationStateCreateInfo rasterizer{};
+    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizer.depthClampEnable = VK_FALSE; // if true,  fragments outside of near and far are clamped rather than discarded
+    rasterizer.rasterizerDiscardEnable = VK_FALSE; // if true, disables passing geometry to framebuffer, so disables output
+    rasterizer.polygonMode = VK_POLYGON_MODE_FILL; // like opengl, can also be VK_POLYGON_MODE_LINE (wireframe) or VK_POLYGON_MODE_POINT
+    // NB any other mode than fill requires enabling a GPU feature
+    rasterizer.lineWidth = 1.0f; // larger than 1.0f requires the wideLines GPU feature
+    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT; // type of face culling to use (disable, cull front, cull back, cull both)
+    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; // vertex order for faces to be front facing (CW and CCW)
+    rasterizer.depthBiasEnable = VK_FALSE; // alter the depth by adding a constant or based onthe fragment's slope
+    rasterizer.depthBiasConstantFactor = 0.0f; // Optional
+    rasterizer.depthBiasClamp = 0.0f; // Optional
+    rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
+
+    VkPipelineMultisampleStateCreateInfo multisampling{};
+    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampling.sampleShadingEnable = VK_FALSE;
+    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisampling.minSampleShading = 1.0f; // Optional
+    multisampling.pSampleMask = nullptr; // Optional
+    multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
+    multisampling.alphaToOneEnable = VK_FALSE; // Optional
+
+    // after fragment shader has returned a result, needs to be combined with what is already in framebuffer
+    // can either mix old and new values or combine with bitwise operation
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{}; // contains the config per attached framebuffer
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_FALSE; // disable because we don't want colour blending
+
+    // this struct references array of structures for all framebuffers and sets constants to use as blend factors
+    VkPipelineColorBlendStateCreateInfo colorBlending{};
+    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.attachmentCount = 1; // the previously declared attachment
+    colorBlending.pAttachments = &colorBlendAttachment;
+
+    // enable and configure depth testing
+    VkPipelineDepthStencilStateCreateInfo depthStencil{};
+    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+
+    // spec if the depth should be compared to the depth buffer
+    if (enableDepthTest)
+        depthStencil.depthTestEnable = VK_TRUE;
+    else
+        depthStencil.depthTestEnable = VK_FALSE;
+
+    // specifies if the new depth that pass the depth test should be written to the buffer
+    depthStencil.depthWriteEnable = VK_TRUE;
+    // pecifies the comparison that is performed to keep or discard fragments (here lower depth = closer so keep less)
+    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    // boundary on the depth test, only keep fragments within the specified depth range
+    depthStencil.depthBoundsTestEnable = VK_FALSE;
+    depthStencil.minDepthBounds = 0.0f; // Optional
+    depthStencil.maxDepthBounds = 1.0f; // Optional
+    // stencil buffer operations
+    depthStencil.stencilTestEnable = VK_FALSE;
+    depthStencil.front = {}; // Optional
+    depthStencil.back = {}; // Optional
+
+    // create the pipeline layout, where uniforms are specified, also push constants another way of passing dynamic values
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    // refernece to the descriptor layout (uniforms)
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = descriptorSetLayout;
+
+    if (vkCreatePipelineLayout(vkSetup->device, &pipelineLayoutInfo, nullptr, &terrainPipelineLayoutGPU) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create pipeline layout!");
+    }
+
+    // now use all the structs we have constructed to build the pipeline
+    VkGraphicsPipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    // reference the array of shader stage structs
+    pipelineInfo.stageCount = 2;
+    pipelineInfo.pStages = shaderStages;
+
+    // reference the structures describing the fixed function pipeline
+    pipelineInfo.pVertexInputState = &vertexInputInfo;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState = &multisampling;
+    pipelineInfo.pColorBlendState = &colorBlending;
+    pipelineInfo.pDepthStencilState = &depthStencil;
+    // the pipeline layout is a vulkan handle rather than a struct pointer
+    pipelineInfo.layout = terrainPipelineLayoutGPU;
+    // and a reference to the render pass
+    pipelineInfo.renderPass = renderPass;
+    pipelineInfo.subpass = 0; // index of desired sub pass where pipeline will be used
+
+    if (vkCreateGraphicsPipelines(vkSetup->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &terrainPipelineGPU) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
     }
 

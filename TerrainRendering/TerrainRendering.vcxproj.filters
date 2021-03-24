@@ -103,9 +103,8 @@
     <None Include="source\shaders\compile.bat">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="source\shaders\frag.spv" />
     <None Include="source\shaders\shader.frag" />
     <None Include="source\shaders\shader.vert" />
-    <None Include="source\shaders\vert.spv" />
+    <None Include="source\shaders\terrainGPU.vert" />
   </ItemGroup>
 </Project>

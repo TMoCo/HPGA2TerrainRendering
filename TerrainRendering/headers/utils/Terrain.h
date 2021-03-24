@@ -59,8 +59,6 @@ private:
 	// compute the Central Finite Difference for a vertex at position row, col in the grid
 	glm::vec3 computeCFD(int row, int col);
 
-	glm::vec3 removeY(glm::vec3 vec);
-
 public:
 	// height data
 	std::vector<float> heights;    // the heights

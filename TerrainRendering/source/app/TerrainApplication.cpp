@@ -100,11 +100,17 @@ void TerrainApplication::initVulkan() {
     // set the debug camera
     debugCamera = Camera(glm::vec3(0.0f, 100.0f, 0.0f), 50.0f, 50.0f);
 
-    //createTerrainVertexBuffer();
-    createAirplaneVertexBuffer();
+    createVertexBuffer(&terrain.vertices, &bTerrainVertex);
+    createVertexBuffer(&airplane.model.vertices, &bAirplaneVertex);
 
-    createTerrainIndexBuffer();
-    createAirplaneIndexBuffer();
+    createIndexBuffer(&terrain.indices, &bTerrainIndex);
+    createIndexBuffer(&airplane.model.indices, &bAirplaneIndex);
+
+    //createTerrainVertexBuffer();
+    //createAirplaneVertexBuffer();
+
+    //createTerrainIndexBuffer();
+    //createAirplaneIndexBuffer();
 
     //
     // STEP 5: create the vulkan data for accessing and using the app's data
@@ -330,7 +336,7 @@ void TerrainApplication::createDescriptorSets() {
     for (size_t i = 0; i < swapChainData.images.size(); i++) {
         // the buffer and the region of it that contain the data for the descriptor
         VkDescriptorBufferInfo terrainBufferInfo{};
-        terrainBufferInfo.buffer = _bTerrainUniforms.buffer;       // the buffer containing the uniforms 
+        terrainBufferInfo.buffer = bTerrainUniforms.buffer;       // the buffer containing the uniforms 
         terrainBufferInfo.offset = sizeof(UniformBufferObject) * i; // the offset to access uniforms for image i
         terrainBufferInfo.range  = sizeof(UniformBufferObject);     // here the size of the buffer we want to access
 
@@ -365,15 +371,15 @@ void TerrainApplication::createDescriptorSets() {
          
         // do the same for the airplane descriptor set
         VkDescriptorBufferInfo airplaneBufferInfo{};
-        airplaneBufferInfo.buffer = _bAirplaneUniforms.buffer;           // the buffer containing the uniforms 
+        airplaneBufferInfo.buffer = bAirplaneUniforms.buffer;           // the buffer containing the uniforms 
         airplaneBufferInfo.offset = sizeof(UniformBufferObject) * i; // the offset to access uniforms for image i
         airplaneBufferInfo.range  = sizeof(UniformBufferObject);     // here the size of the buffer we want to access
 
         // bind the actual image and sampler to the descriptors in the descriptor set
         VkDescriptorImageInfo airplaneImageInfo{};
         airplaneImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        airplaneImageInfo.imageView   = airplane.texture_.textureImageView;
-        airplaneImageInfo.sampler     = airplane.texture_.textureSampler;
+        airplaneImageInfo.imageView   = airplane.texture.textureImageView;
+        airplaneImageInfo.sampler     = airplane.texture.textureSampler;
 
         // the struct configuring the descriptor set
         std::array<VkWriteDescriptorSet, 2> airplaneDescriptorWrites{};
@@ -419,11 +425,11 @@ void TerrainApplication::createUniformBuffers() {
     createInfo.properties  = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 
     // a large uniform buffer containing the data for each frame buffer
-    createInfo.pBufferData = &_bTerrainUniforms;
+    createInfo.pBufferData = &bTerrainUniforms;
     utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
 
     // a second uniform buffer for the airplane's uniforms
-    createInfo.pBufferData = &_bAirplaneUniforms;
+    createInfo.pBufferData = &bAirplaneUniforms;
     utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
 }
 
@@ -434,7 +440,7 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
         view = debugCamera.getViewMatrix();
     }
     else {
-        view = airplane.camera_.getViewMatrix();
+        view = airplane.camera.getViewMatrix();
     }
 
     // project the scene with a 45° fov, use current swap chain extent to compute aspect ratio, near, far
@@ -464,16 +470,16 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
 
     // copy the uniform buffer object into the uniform buffer
     void* terrainData;
-    vkMapMemory(vkSetup.device, _bTerrainUniforms.memory, currentImage * sizeof(terrainUbo), sizeof(terrainUbo), 0, &terrainData);
+    vkMapMemory(vkSetup.device, bTerrainUniforms.memory, currentImage * sizeof(terrainUbo), sizeof(terrainUbo), 0, &terrainData);
     memcpy(terrainData, &terrainUbo, sizeof(terrainUbo));
-    vkUnmapMemory(vkSetup.device, _bTerrainUniforms.memory);
+    vkUnmapMemory(vkSetup.device, bTerrainUniforms.memory);
 
     // airplane uniform buffer object
     UniformBufferObject airplaneUbo{};
 
-    airplaneUbo.model = glm::translate(glm::mat4(1.0f), airplane.camera_.position_);  // translate the plane to the camera
-    airplaneUbo.model = glm::translate(airplaneUbo.model, airplane.camera_.orientation_.front * 10.0f); // translate the plane in front of the camera
-    airplaneUbo.model = airplaneUbo.model * airplane.camera_.orientation_.toWorldSpaceRotation(); // rotate the plane based on the camera's orientation
+    airplaneUbo.model = glm::translate(glm::mat4(1.0f), airplane.camera.position);  // translate the plane to the camera
+    airplaneUbo.model = glm::translate(airplaneUbo.model, airplane.camera.orientation.front * 10.0f); // translate the plane in front of the camera
+    airplaneUbo.model = airplaneUbo.model * airplane.camera.orientation.toWorldSpaceRotation(); // rotate the plane based on the camera's orientation
     //airplaneUbo.model = glm::scale(airplaneUbo.model, glm::vec3(0.4f, 0.4f, 0.4f)); // scale the plane to an acceptable size
 
     airplaneUbo.view = view;
@@ -481,9 +487,9 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
     airplaneUbo.proj = proj;
 
     void* airplaneData;
-    vkMapMemory(vkSetup.device, _bAirplaneUniforms.memory, currentImage * sizeof(airplaneUbo), sizeof(airplaneUbo), 0, &airplaneData);
+    vkMapMemory(vkSetup.device, bAirplaneUniforms.memory, currentImage * sizeof(airplaneUbo), sizeof(airplaneUbo), 0, &airplaneData);
     memcpy(airplaneData, &airplaneUbo, sizeof(airplaneUbo));
-    vkUnmapMemory(vkSetup.device, _bAirplaneUniforms.memory);
+    vkUnmapMemory(vkSetup.device, bAirplaneUniforms.memory);
 }
 
 //////////////////////
@@ -564,9 +570,6 @@ void TerrainApplication::recordGeometryCommandBuffer(size_t cmdBufferIndex) {
     // first param for all cmd are the command buffer to record command to, second details the render pass we've provided
     vkCmdBeginRenderPass(renderCommandBuffers[cmdBufferIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
     // final parameter controls how drawing commands within the render pass will be provided 
-    // VK_SUBPASS_CONTENTS_INLINE -> render pass cmd embedded in primary command buffer and no secondary command buffers will be executed
-    // VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS -> render pass commands executed from secondary command buffers
-
     VkDeviceSize offset = 0;
 
     //
@@ -576,19 +579,20 @@ void TerrainApplication::recordGeometryCommandBuffer(size_t cmdBufferIndex) {
     // check if drawing on CPU or GPU
     if (onGPU) {
         // bind the graphics pipeline, second param determines if the object is a graphics or compute pipeline
-        vkCmdBindPipeline(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.terrainPipeline);
+        vkCmdBindPipeline(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.terrainPipelineGPU);
         // bind the index buffer, can only have a single index buffer 
-        vkCmdBindIndexBuffer(renderCommandBuffers[cmdBufferIndex], _bTerrainIndex.buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(renderCommandBuffers[cmdBufferIndex], bTerrainIndex.buffer, 0, VK_INDEX_TYPE_UINT32);
         // bind the uniform descriptor sets
         vkCmdBindDescriptorSets(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.terrainPipelineLayout, 0, 1, &terrainDescriptorSets[cmdBufferIndex], 0, nullptr);
 
-        // loop over the visible chuncks and draw it
         if (applyBinning) {
+            // simply draw all terrain chunks
             for (auto& chunk: terrain.chunks) {
                 vkCmdDrawIndexed(renderCommandBuffers[cmdBufferIndex], static_cast<uint32_t>(chunk.indices.size()), 1, chunk.chunkOffset, 0, 0);
             }
         }
         else {
+            // loop over the visible chuncks and draw it
             for (auto& pair : terrain.visible) {
                 auto chunk = pair.second;
                 vkCmdDrawIndexed(renderCommandBuffers[cmdBufferIndex], static_cast<uint32_t>(chunk->indices.size()), 1, chunk->chunkOffset, 0, 0);
@@ -600,9 +604,9 @@ void TerrainApplication::recordGeometryCommandBuffer(size_t cmdBufferIndex) {
         // bind the graphics pipeline, second param determines if the object is a graphics or compute pipeline
         vkCmdBindPipeline(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.terrainPipeline);
         // bind the vertex buffer, can have many vertex buffers
-        vkCmdBindVertexBuffers(renderCommandBuffers[cmdBufferIndex], 0, 1, &_bTerrainVertex.buffer, &offset);
+        vkCmdBindVertexBuffers(renderCommandBuffers[cmdBufferIndex], 0, 1, &bTerrainVertex.buffer, &offset);
         // bind the index buffer, can only have a single index buffer 
-        vkCmdBindIndexBuffer(renderCommandBuffers[cmdBufferIndex], _bTerrainIndex.buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(renderCommandBuffers[cmdBufferIndex], bTerrainIndex.buffer, 0, VK_INDEX_TYPE_UINT32);
         // bind the uniform descriptor sets
         vkCmdBindDescriptorSets(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.terrainPipelineLayout, 0, 1, &terrainDescriptorSets[cmdBufferIndex], 0, nullptr);
     }
@@ -613,18 +617,14 @@ void TerrainApplication::recordGeometryCommandBuffer(size_t cmdBufferIndex) {
 
     // bind to a new pipeline to draw the plane
     vkCmdBindPipeline(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.airplanePipeline);
-    vkCmdBindVertexBuffers(renderCommandBuffers[cmdBufferIndex], 0, 1, &_bAirplaneVertex.buffer, &offset);
-    vkCmdBindIndexBuffer(renderCommandBuffers[cmdBufferIndex], _bAirplaneIndex.buffer, 0, VK_INDEX_TYPE_UINT32); // index offset is in bytes
+
+    vkCmdBindVertexBuffers(renderCommandBuffers[cmdBufferIndex], 0, 1, &bAirplaneVertex.buffer, &offset);
+    vkCmdBindIndexBuffer(renderCommandBuffers[cmdBufferIndex], bAirplaneIndex.buffer, 0, VK_INDEX_TYPE_UINT32); // index offset is in bytes
+
     vkCmdBindDescriptorSets(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.airplanePipelineLayout, 0, 1, &airplaneDescriptorSets[cmdBufferIndex], 0, nullptr);
 
-    vkCmdDrawIndexed(renderCommandBuffers[cmdBufferIndex], static_cast<uint32_t>(airplane.model_.indices.size()), 1, 0, 0, 0);
+    vkCmdDrawIndexed(renderCommandBuffers[cmdBufferIndex], static_cast<uint32_t>(airplane.model.indices.size()), 1, 0, 0, 0);
         
-    // /!\ about vertex and index buffers /!\
-    // The previous chapter already mentioned that should allocate multiple resources like buffers 
-    // from a single memory allocation. Even better, Driver developers recommend to store multiple buffers, 
-    // like the vertex and index buffer, into a single VkBuffer and use  offsets in commands like vkCmdBindVertexBuffers. 
-    // The advantage is that your data is more cache friendly, because it's closer together. 
-
     // end the render pass
     vkCmdEndRenderPass(renderCommandBuffers[cmdBufferIndex]);
 
@@ -640,9 +640,10 @@ void TerrainApplication::recordGeometryCommandBuffer(size_t cmdBufferIndex) {
 //
 //////////////////////
 
-void TerrainApplication::createTerrainVertexBuffer() {
+template<class T> // maybe a vector or vertex objects, or glm::vec3...
+void TerrainApplication::createVertexBuffer(std::vector<T>* vertices, BufferData* bufferData) {
     // precompute buffer size
-    VkDeviceSize bufferSize = 0;// sizeof(Vertex)* terrain.vertices.size();
+    VkDeviceSize bufferSize = sizeof(T) * vertices->size();
 
     // a staging buffer for mapping and copying 
     BufferData stagingBuffer;
@@ -660,13 +661,13 @@ void TerrainApplication::createTerrainVertexBuffer() {
     // map then copy in memory
     void* data;
     vkMapMemory(vkSetup.device, stagingBuffer.memory, 0, bufferSize, 0, &data);
-    memcpy(data, terrain.vertices.data(), (size_t)bufferSize);
+    memcpy(data, vertices->data(), (size_t)bufferSize);
     vkUnmapMemory(vkSetup.device, stagingBuffer.memory); // unmap the memory 
 
     // reuse the creation struct
     createInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    createInfo.pBufferData = &_bTerrainVertex;
+    createInfo.pBufferData = bufferData;
 
     // in device memory (gpu)
     utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
@@ -680,7 +681,7 @@ void TerrainApplication::createTerrainVertexBuffer() {
     // buffer copy struct
     BufferCopyInfo copyInfo{};
     copyInfo.pSrc = &stagingBuffer.buffer;
-    copyInfo.pDst = &_bTerrainVertex.buffer;
+    copyInfo.pDst = &bufferData->buffer;
     copyInfo.copyRegion = copyRegion;
 
     utils::copyBuffer(&vkSetup.device, &vkSetup.graphicsQueue, renderCommandPool, &copyInfo);
@@ -689,62 +690,9 @@ void TerrainApplication::createTerrainVertexBuffer() {
     stagingBuffer.cleanupBufferData(vkSetup.device);
 }
 
-void TerrainApplication::createAirplaneVertexBuffer() {
-    // precompute buffer size
-    VkDeviceSize bufferSize = sizeof(Vertex) * airplane.model_.vertices.size();
-
-    // a staging buffer for mapping and copying 
-    BufferData stagingBuffer;
-
-    // buffer creation struct
-    BufferCreateInfo createInfo{};
-    createInfo.size = bufferSize;
-    createInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    createInfo.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    createInfo.pBufferData = &stagingBuffer;
-
-    // in host memory (cpu)
-    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
-
-    // map then copy in memory
-    void* data;
-    vkMapMemory(vkSetup.device, stagingBuffer.memory,
-        0,                      // offset
-        bufferSize,             // size of the buffer
-        0,                      // flags
-        &data);
-    memcpy(data, airplane.model_.vertices.data(), (size_t)bufferSize);
-    vkUnmapMemory(vkSetup.device, stagingBuffer.memory); // unmap the memory 
-
-    // reuse the creation struct
-    createInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    createInfo.pBufferData = &_bAirplaneVertex;
-
-    // in device memory (gpu)
-    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
-
-    // the struct used by VkCmdCopyBuffer
-    VkBufferCopy copyRegion{};
-    copyRegion.size = bufferSize;
-    copyRegion.srcOffset = 0;
-    copyRegion.dstOffset = 0;
-
-    // buffer copy struct
-    BufferCopyInfo copyInfo{};
-    copyInfo.pSrc = &stagingBuffer.buffer;
-    copyInfo.pDst = &_bAirplaneVertex.buffer;
-    copyInfo.copyRegion = copyRegion;
-
-    utils::copyBuffer(&vkSetup.device, &vkSetup.graphicsQueue, renderCommandPool, &copyInfo);
-
-    // cleanup after using the staging buffer
-    stagingBuffer.cleanupBufferData(vkSetup.device);
-}
-
-void TerrainApplication::createTerrainIndexBuffer() {
+void TerrainApplication::createIndexBuffer(std::vector<uint32_t>* indices, BufferData* bufferData) {
     // because we generated a mesh for the terrain, we can use the indices computed
-    VkDeviceSize bufferSize = sizeof(uint32_t) * terrain.indices.size();
+    VkDeviceSize bufferSize = sizeof(uint32_t) * indices->size();
 
     BufferData stagingBuffer;
 
@@ -758,13 +706,13 @@ void TerrainApplication::createTerrainIndexBuffer() {
 
     void* data;
     vkMapMemory(vkSetup.device, stagingBuffer.memory, 0, bufferSize, 0, &data);
-    memcpy(data, terrain.indices.data(), (size_t)bufferSize);
+    memcpy(data, indices->data(), (size_t)bufferSize);
     vkUnmapMemory(vkSetup.device, stagingBuffer.memory);
 
     // different usage bit flag VK_BUFFER_USAGE_INDEX_BUFFER_BIT instead of VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
     createInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
     createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    createInfo.pBufferData = &_bTerrainIndex;
+    createInfo.pBufferData = bufferData;
 
     utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
 
@@ -775,47 +723,7 @@ void TerrainApplication::createTerrainIndexBuffer() {
 
     BufferCopyInfo copyInfo{};
     copyInfo.pSrc = &stagingBuffer.buffer;
-    copyInfo.pDst = &_bTerrainIndex.buffer;
-    copyInfo.copyRegion = copyRegion;
-
-    utils::copyBuffer(&vkSetup.device, &vkSetup.graphicsQueue, renderCommandPool, &copyInfo);
-
-    stagingBuffer.cleanupBufferData(vkSetup.device);
-}
-
-void TerrainApplication::createAirplaneIndexBuffer() {
-    VkDeviceSize bufferSize = sizeof(uint32_t) * airplane.model_.indices.size();
-
-    BufferData stagingBuffer;
-
-    BufferCreateInfo createInfo{};
-    createInfo.size = bufferSize;
-    createInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    createInfo.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    createInfo.pBufferData = &stagingBuffer;
-
-    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
-
-    void* data;
-    vkMapMemory(vkSetup.device, stagingBuffer.memory, 0, bufferSize, 0, &data);
-    memcpy(data, airplane.model_.indices.data(), (size_t)bufferSize);
-    vkUnmapMemory(vkSetup.device, stagingBuffer.memory);
-
-    // different usage bit flag VK_BUFFER_USAGE_INDEX_BUFFER_BIT instead of VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
-    createInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    createInfo.pBufferData = &_bAirplaneIndex;
-
-    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
-
-    VkBufferCopy copyRegion{};
-    copyRegion.size = bufferSize;
-    copyRegion.srcOffset = 0;
-    copyRegion.dstOffset = 0;
-
-    BufferCopyInfo copyInfo{};
-    copyInfo.pSrc = &stagingBuffer.buffer;
-    copyInfo.pDst = &_bAirplaneIndex.buffer;
+    copyInfo.pDst = &bufferData->buffer;
     copyInfo.copyRegion = copyRegion;
 
     utils::copyBuffer(&vkSetup.device, &vkSetup.graphicsQueue, renderCommandPool, &copyInfo);
@@ -849,8 +757,8 @@ void TerrainApplication::recreateVulkanData() {
     vkFreeCommandBuffers(vkSetup.device, imGuiCommandPool, static_cast<uint32_t>(imGuiCommandBuffers.size()), imGuiCommandBuffers.data());
     
     // also destroy the uniform buffers that worked with the swap chain
-    _bTerrainUniforms.cleanupBufferData(vkSetup.device);
-    _bAirplaneUniforms.cleanupBufferData(vkSetup.device);
+    bTerrainUniforms.cleanupBufferData(vkSetup.device);
+    bAirplaneUniforms.cleanupBufferData(vkSetup.device);
 
     // destroy the framebuffer data, followed by the swap chain data
     framebufferData.cleanupFrambufferData();
@@ -988,7 +896,7 @@ void TerrainApplication::drawFrame() {
     updateUniformBuffer(imageIndex);
 
     // get the chunks to draw
-    terrain.updateVisibleChunks(airplane.camera_, tolerance);
+    terrain.updateVisibleChunks(airplane.camera, tolerance);
 
     // record the geometry command buffer with the new indices
     recordGeometryCommandBuffer(imageIndex);
@@ -1153,22 +1061,22 @@ int TerrainApplication::processKeyInput() {
 
 
         // fake input to rotate the plane 
-        airplane.camera_.processInput(CameraMovement::PitchDown, deltaTime);
+        airplane.camera.processInput(CameraMovement::PitchDown, deltaTime);
     }
     // airplane camera is on
     else {
         if (glfwGetKey(window, GLFW_KEY_W))
-            airplane.camera_.processInput(CameraMovement::PitchUp, deltaTime);
+            airplane.camera.processInput(CameraMovement::PitchUp, deltaTime);
         if (glfwGetKey(window, GLFW_KEY_S))
-            airplane.camera_.processInput(CameraMovement::PitchDown, deltaTime);
+            airplane.camera.processInput(CameraMovement::PitchDown, deltaTime);
         if (glfwGetKey(window, GLFW_KEY_A))
-            airplane.camera_.processInput(CameraMovement::RollLeft, deltaTime);
+            airplane.camera.processInput(CameraMovement::RollLeft, deltaTime);
         if (glfwGetKey(window, GLFW_KEY_D))
-            airplane.camera_.processInput(CameraMovement::RollRight, deltaTime);
+            airplane.camera.processInput(CameraMovement::RollRight, deltaTime);
         if (glfwGetKey(window, GLFW_KEY_Q))
-            airplane.camera_.processInput(CameraMovement::YawLeft, deltaTime);
+            airplane.camera.processInput(CameraMovement::YawLeft, deltaTime);
         if (glfwGetKey(window, GLFW_KEY_E))
-            airplane.camera_.processInput(CameraMovement::YawRight, deltaTime);
+            airplane.camera.processInput(CameraMovement::YawRight, deltaTime);
     }
 
 
@@ -1197,8 +1105,8 @@ void TerrainApplication::cleanup() {
     vkFreeCommandBuffers(vkSetup.device, imGuiCommandPool, static_cast<uint32_t>(imGuiCommandBuffers.size()), imGuiCommandBuffers.data());
     
     // also destroy the uniform buffers that worked with the swap chain
-    _bTerrainUniforms.cleanupBufferData(vkSetup.device);
-    _bAirplaneUniforms.cleanupBufferData(vkSetup.device);
+    bTerrainUniforms.cleanupBufferData(vkSetup.device);
+    bAirplaneUniforms.cleanupBufferData(vkSetup.device);
 
     // call the function we created for destroying the swap chain and frame buffers
     // in the reverse order of their creation
@@ -1214,12 +1122,12 @@ void TerrainApplication::cleanup() {
     }
 
     // destroy the index buffers and free their memory
-    _bTerrainIndex.cleanupBufferData(vkSetup.device);
-    _bAirplaneIndex.cleanupBufferData(vkSetup.device);
+    bTerrainIndex.cleanupBufferData(vkSetup.device);
+    bAirplaneIndex.cleanupBufferData(vkSetup.device);
 
     // destroy the vertex buffers and free their memory
-    _bTerrainVertex.cleanupBufferData(vkSetup.device);
-    _bAirplaneVertex.cleanupBufferData(vkSetup.device);
+    bTerrainVertex.cleanupBufferData(vkSetup.device);
+    bAirplaneVertex.cleanupBufferData(vkSetup.device);
 
 
     // loop over each frame and destroy its semaphores 

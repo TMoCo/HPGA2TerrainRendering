@@ -67,12 +67,10 @@ private:
     //
 
     void createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLayout);
+
+    void createTerrainPipelineGPU(VkDescriptorSetLayout* descriptorSetLayout);
     
     void createAirplanePipeline(VkDescriptorSetLayout* descriptorSetLayout);
-
-    //
-    // Command pool creation
-    //
 
     //////////////////////
     //
@@ -108,10 +106,13 @@ public:
     VkRenderPass     renderPass;
     // the ImGui render pass
     VkRenderPass     imGuiRenderPass;
+
     // the layout of the graphics pipeline, for binding descriptor sets
     VkPipelineLayout terrainPipelineLayout;
-    // the graphics pipeline
     VkPipeline       terrainPipeline;
+
+    VkPipelineLayout terrainPipelineLayoutGPU;
+    VkPipeline       terrainPipelineGPU;
 
     // pipeline for rendering the plane
     VkPipelineLayout airplanePipelineLayout;

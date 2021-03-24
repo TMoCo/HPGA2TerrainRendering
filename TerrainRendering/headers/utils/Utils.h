@@ -63,6 +63,7 @@ const size_t N_DESCRIPTOR_LAYOUTS = 2;
 
 // vertex shaders
 const std::string TERRAIN_SHADER_VERT_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\source\\shaders\\terrainVert.spv";
+const std::string TERRAIN_GPU_SHADER_VERT_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\source\\shaders\\terrainGPUVert.spv";
 const std::string AIRPLANE_SHADER_VERT_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\source\\shaders\\airplaneVert.spv";
 
 // fragment shaders
