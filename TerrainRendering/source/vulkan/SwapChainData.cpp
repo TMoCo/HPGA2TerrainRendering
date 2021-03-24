@@ -448,36 +448,15 @@ void SwapChainData::createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLa
     // use this array for future reference
     VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
-    // setup pipeline to accept vertex data. For the terrain, these are just heights as floats
-    VkVertexInputBindingDescription bindingDescription{};
-    bindingDescription.binding = 0; // index of binding in array of bindings
-    bindingDescription.stride = sizeof(float); // bytes in one entry
-    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX; // how to move the next data
-
-    VkVertexInputAttributeDescription attributeDescription{};
-    attributeDescription.binding = 0;
-    attributeDescription.location = 0;
-    attributeDescription.format = VK_FORMAT_R32_SFLOAT; // a single float value
-    attributeDescription.offset = 0;
-
     // format of the vertex data, describe the binding and the attributes
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    // because vertex data is in the shader, we don't have to specify anything here. We would otherwise
-    // need arrays of structs that describe the details for loading vertex data
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-    vertexInputInfo.vertexAttributeDescriptionCount = 1;
-    vertexInputInfo.pVertexAttributeDescriptions = &attributeDescription;
+    // because vertex data is in the shader, we don't have to specify any binding or attribute descriptions. We would otherwise
+    // need arrays of structs that describe the details for loading vertex data    
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     // tells what kind of geometry to draw from the vertices
-    // VK_PRIMITIVE_TOPOLOGY_POINT_LIST: points from vertices
-    // VK_PRIMITIVE_TOPOLOGY_LINE_LIST : line from every 2 vertices without reuse
-    // VK_PRIMITIVE_TOPOLOGY_LINE_STRIP : end vertex of every line used as start vertex for next line
-    // VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST : triangle from every 3 vertices without reuse
-    // VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP : second and third vertex of every triangle used as first two vertices of next triangle
     inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     inputAssembly.primitiveRestartEnable = VK_FALSE; // can break up lines and triangles in strip using special id 0xFFF or 0xFFFFFFF
 
@@ -515,7 +494,7 @@ void SwapChainData::createTerrainPipeline(VkDescriptorSetLayout* descriptorSetLa
     // NB any other mode than fill requires enabling a GPU feature
     rasterizer.lineWidth = 1.0f; // larger than 1.0f requires the wideLines GPU feature
     rasterizer.cullMode = VK_CULL_MODE_BACK_BIT; // type of face culling to use (disable, cull front, cull back, cull both)
-    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE; // vertex order for faces to be front facing (CW and CCW)
+    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; // vertex order for faces to be front facing (CW and CCW)
     rasterizer.depthBiasEnable = VK_FALSE; // alter the depth by adding a constant or based onthe fragment's slope
     rasterizer.depthBiasConstantFactor = 0.0f; // Optional
     rasterizer.depthBiasClamp = 0.0f; // Optional

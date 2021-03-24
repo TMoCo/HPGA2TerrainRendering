@@ -26,7 +26,7 @@ public:
 	
 	void destroyTerrain();
 
-	void updateVisibleChunks(const Camera& cam);
+	void updateVisibleChunks(const Camera& cam, float tolerance, float vertexStride = 1.0f, float aspectRatio = 1.0f);
 
 private:
 	// load a terrain model from a greyscale ppm file 
@@ -42,8 +42,10 @@ private:
 	// load a height map (greyscale ppm image)
 	void loadHeights(const std::string& path);
 
-	// returns a pointer to a height at a given row and col, with offsets if specified
+	// returns a height at a given row and col, with offsets if specified
 	float getHeight (int row, int col);
+
+	Chunk* getChunk(int row, int col);
 
 	// returns the first index of a grid cell
 	int getIndicesCellFirstIndex(int row, int col);
@@ -57,6 +59,8 @@ private:
 	// compute the Central Finite Difference for a vertex at position row, col in the grid
 	glm::vec3 computeCFD(int row, int col);
 
+	glm::vec3 removeY(glm::vec3 vec);
+
 public:
 	// height data
 	std::vector<float> heights;    // the heights
@@ -65,7 +69,7 @@ public:
 	std::map<int, Chunk*> visible; // a map containing all currently visible chunks
 	
 	int numChunks;		           // number of chunks
-	size_t hSize;				   // the size of a row / column in the height map
+	int hSize;				   // the size of a row / column in the height map
 	Texture heightMap;			   // the height map texture
 };
 

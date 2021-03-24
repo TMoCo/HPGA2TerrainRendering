@@ -16,7 +16,7 @@ struct Vertex {
     // normal
     glm::vec3 normal; 
     // material properties
-    glm::vec4 material; 
+    glm::vec4 material = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     // texture coordinate
     glm::vec2 texCoord; 
 

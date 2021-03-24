@@ -7,14 +7,6 @@
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/euler_angles.hpp>
 
-// default constructor initialises the class variables
-Camera::Camera() {
-    position_ = glm::vec3(0.0f, 0.0f, 0.0f);
-    // start with no rotation to the camera
-    pitch_ = yaw_ = roll_ = 0.0f;
-    updateCamera();
-}
-
 glm::mat4 Camera::getViewMatrix() {
     return glm::lookAt(position_, position_ + orientation_.front, orientation_.up); // look at in front of the camera
 }
@@ -30,17 +22,25 @@ Orientation Camera::getOrientation() {
 void Camera::processInput(CameraMovement camMove, float deltaTime) {
     pitch_ = roll_ = yaw_ = 0.0f; // reset pitch yaw and roll
     if (camMove == CameraMovement::PitchUp)
-        pitch_ = CAMERA_ANGLE * deltaTime;
+        pitch_ = angleChangeSpeed * deltaTime;
     if (camMove == CameraMovement::PitchDown)
-        pitch_ = -CAMERA_ANGLE * deltaTime;
+        pitch_ = -angleChangeSpeed * deltaTime;
     if (camMove == CameraMovement::RollRight)
-        roll_ = CAMERA_ANGLE * deltaTime;
+        roll_ = angleChangeSpeed * deltaTime;
     if (camMove == CameraMovement::RollLeft)
-        roll_ = -CAMERA_ANGLE * deltaTime;
+        roll_ = -angleChangeSpeed * deltaTime;
     if (camMove == CameraMovement::YawLeft)
-        yaw_ = CAMERA_ANGLE * deltaTime;
+        yaw_ = angleChangeSpeed * deltaTime;
     if (camMove == CameraMovement::YawRight)
-        yaw_ = -CAMERA_ANGLE * deltaTime;
+        yaw_ = -angleChangeSpeed * deltaTime;
+    if (camMove == CameraMovement::Left)
+        position_ -= orientation_.right * deltaTime * positionChangeSpeed;
+    if (camMove == CameraMovement::Right)
+        position_ += orientation_.right * deltaTime * positionChangeSpeed;
+    if (camMove == CameraMovement::Forward)
+        position_ += orientation_.front * deltaTime * positionChangeSpeed;
+    if (camMove == CameraMovement::Backward)
+        position_ -= orientation_.front * deltaTime * positionChangeSpeed;
     // update the camera accordingly
     updateCamera();
 }

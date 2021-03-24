@@ -42,9 +42,6 @@ const std::string ENGINE_NAME = "No Engine";
 // max size for reading a line 
 const std::streamsize MAX_SIZE = 1048;
 
-// the camera angle change speed
-const float CAMERA_ANGLE = 20.0f;
-
 // world axes
 const glm::vec3 WORLD_RIGHT = glm::vec3(1.0f, 0.0f, 0.0f);
 const glm::vec3 WORLD_UP    = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -115,12 +112,18 @@ const bool enableVerboseValidation = false;
 
 // an enum that abstracts away camera input processing
 enum class CameraMovement : unsigned char {
-    PitchUp   = 0x10,
-    PitchDown = 0x20,
-    RollLeft  = 0x40,
-    RollRight = 0x50,
-    YawLeft   = 0x70,
-    YawRight  = 0x80
+    PitchUp   = 0x00,
+    PitchDown = 0x10,
+    RollLeft  = 0x20,
+    RollRight = 0x30,
+    YawLeft   = 0x40,
+    YawRight  = 0x50,
+    Right     = 0x60,
+    Left      = 0x70,
+    Forward   = 0x80,
+    Backward  = 0x90,
+    Upward    = 0xA0,
+    Downward  = 0xB0
 };
 
 //////////////////////

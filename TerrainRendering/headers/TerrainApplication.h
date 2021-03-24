@@ -126,7 +126,7 @@ private:
     
     void drawFrame();
 
-    void renderUI();
+    void setGUI();
 
     int processKeyInput();
 
@@ -155,6 +155,9 @@ private:
     Terrain  terrain;
     // the airplane object
     Airplane airplane;
+
+    // for... *drumroll* debugging
+    Camera debugCamera;
 
 
     // scene vertex buffers
@@ -207,12 +210,15 @@ private:
     float scale = 1.0f;
 
     float vertexStride = 1.0f;
+    float tolerance    = 0.5f;
 
     int numChunks = 10;
 
-
+    bool debugCameraState   = false; // on or off
+    bool applyBinning       = false;
     bool shouldExit         = false;
     bool framebufferResized = false;
+    bool onGPU              = true;
 
 
     // timer

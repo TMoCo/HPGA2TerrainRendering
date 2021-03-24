@@ -6,15 +6,17 @@
 
 #include <utils/Utils.h> // MAX_LINE
 #include <utils/Terrain.h>
-
+#include <glm/gtx/string_cast.hpp>
 
 void Terrain::createTerrain(VulkanSetup* pVkSetup, const VkCommandPool& commandPool) {
 	// load the texture as a grayscale
 	heightMap.createTexture(pVkSetup, TERRAIN_HEIGHTS_PATH, commandPool, VK_FORMAT_R8G8B8A8_SRGB);
-	hSize = static_cast<size_t>(heightMap.width < heightMap.height ? heightMap.width : heightMap.height);
+	hSize = heightMap.width < heightMap.height ? heightMap.width : heightMap.height;
 	heights.resize(hSize * hSize); // resize vector just in case
+
 	generateTerrainMesh();
 	generateChunks();
+	
 	sortIndicesByChunk();
 }
 
@@ -22,16 +24,21 @@ void Terrain::destroyTerrain() {
 	heightMap.cleanupTexture();
 }
 
-void Terrain::updateVisibleChunks(const Camera& cam) {
+void Terrain::updateVisibleChunks(const Camera& cam, float tolerance, float vertexStride, float aspectRatio) {
 	visible.clear();
 	// loop through the chunks, get those that are currently visible
 	for (size_t i = 0; i < chunks.size(); i++) {
+		chunks[i].centrePoint *= vertexStride;   // apply current vertex stride
 		// check the angle between the direction from centre point to camera position, with the view direction
 		glm::vec3 toCamera = glm::normalize(chunks[i].centrePoint - cam.position_);
+		
 		// compute the dot product
-		float dot = std::abs(glm::dot(toCamera, cam.position_));
+		float dot = glm::dot(cam.orientation_.front, toCamera);
+		
 		// depending on angle, put in visible or not
-		visible.insert(std::make_pair<int, Chunk*>(int(i), chunks.data() + i));
+		if (dot > tolerance) {
+			visible.insert(std::make_pair<int, Chunk*>(int(i), chunks.data() + i));
+		}
 	}
 }
 
@@ -42,21 +49,20 @@ void Terrain::generateTerrainMesh() {
 
 	// by making the vector of vertices smaller, we can ignore the edge and corner cases heights
 	// which is tolerable as the result is negligable on large data sets and saves some code branching
-	size_t vSize, iSize;
+	int vSize, iSize;
 	vSize = hSize;	// vertex vector size
 	iSize = hSize - 1; // index vector size
 	vertices.resize(vSize * vSize);
 	indices.resize(iSize * iSize * 6);
 
-	float stepScale = 2.0f; // we can change this later for scaling spacing between vertices
 	// create the vertices, the first one is in the -z -x position, we use the index size to centre the plane
-	glm::vec3 startPos(iSize / -2.0f, 0.0f, iSize / -2.0f);
+	glm::vec3 startPos(vSize / -2.0f, 0.0f, vSize / -2.0f);
 
 	for (size_t row = 0; row < vSize; row++) {
 		for (size_t col = 0; col < vSize; col++) {
 			// initialise empty vertex and set its position
 			Vertex vertex{};
-			vertex.pos = startPos * stepScale + glm::vec3(col * stepScale, getHeight(row, col), row * stepScale);
+			vertex.pos = startPos + glm::vec3(col, getHeight(row, col), row);
 			vertex.normal = computeCFD(row, col);
 			// set the vertex in the vector directly
 			vertices[row * vSize + col] = vertex;
@@ -77,7 +83,7 @@ void Terrain::generateChunks() {
 	// for a given grid cell index. Before that, we need to divide the terrain into a grid of chunks. The simplest solution is 
 	// to divide the grid evenly. If the grid cannot be divided evenly, then the chunks in the last row and column will have a smaller number 
 	// of indices.
-	size_t iSize = hSize - 1; // hsize should always be greater than 1
+	int iSize = hSize - 1; // hsize should always be greater than 1
 
 	// if the cells are not divisible by num chunks, add one to chunk size where remainders are accumulated
 	if (!(iSize % numChunks)) {
@@ -94,20 +100,22 @@ void Terrain::generateChunks() {
 			int chunkIndex = getChunkIndexFromCellIndex(row, col);
 			auto* indices = &(chunks[chunkIndex].indices); // pointer to the indices in a chunk
 			auto cell = getIndicesCell(row, col);		   // contains the indices in a cell
-			// update the centre point of the chunck
-			for (auto& index : cell) {
-				chunks[chunkIndex].centrePoint += vertices[index].pos;
-			}
 			indices->insert(indices->end(), cell.begin(), cell.end()); // append the cell indices to chunk's indices.
 		}
 	}
 
-	// each chunk now has its vertices, we can determine its offset and average the centrePoint
-	size_t offset = 0;
-	for (auto& chunk : chunks) {
-		chunk.centrePoint /= static_cast<float>(chunk.indices.size());
-		chunk.chunkOffset = offset; // chunk offset used in draw commands
-		offset += chunk.indices.size();
+	float chunkWidth = hSize / static_cast<float>(numChunks);		 // width of a chunk in vertex units
+	glm::vec3 startPos((-static_cast<float>(hSize) + chunkWidth) / 2.0f, 0.0f, (-static_cast<float>(hSize) + chunkWidth) / 2.0f); // initial centre point
+	
+	uint32_t offset = 0;
+	// each chunk now has its vertices, we can determine its offset and centrePoint
+	for (int row = 0; row < numChunks; row++) {
+		for (int col = 0; col < numChunks; col++) {
+			auto chunk = getChunk(row, col);
+			chunk->centrePoint += startPos + glm::vec3(chunkWidth * col, 0.0f, chunkWidth * row);
+			chunk->chunkOffset = offset; // chunk offset used in draw commands
+			offset += static_cast<uint32_t>(chunk->indices.size());
+		}
 	}
 }
 
@@ -133,15 +141,18 @@ void Terrain::sortIndicesByCell() {
 
 void Terrain::sortIndicesByChunk() {
 	indices.clear();
-	indices.resize((hSize-1) * (hSize - 1) * 6);
+	indices.resize((hSize-1) * (hSize-1) * 6);
 	size_t currentIndex = 0;
 	// loop over each chunk
-	for (auto& chunk : std::vector<Chunk>(chunks.begin(), chunks.begin() + 40)) {
+	float chunkVal = 0;
+	for (auto& chunk : chunks) {
 		// in the chunk order, set the indices 
 		for (size_t i = 0; i < chunk.indices.size(); i++) {
 			indices[currentIndex] = chunk.indices[i];
+			vertices[indices[currentIndex]].material = glm::vec4(chunkVal) / static_cast<float>(chunks.size());
 			currentIndex++;
 		}
+		chunkVal++;
 	}
 }
 
@@ -219,6 +230,11 @@ float Terrain::getHeight(int row, int col) {
 	return heights[row * hSize + col];
 }
 
+Chunk* Terrain::getChunk(int row, int col) {
+	// !! does not check out of bounds !!
+	return &(chunks[row * numChunks + col]);
+}
+
 glm::vec3 Terrain::computeCFD(int row, int col) {
 	// get the neighbouring vertices' x and z average around the desired vertex
 	glm::vec3 normal(
@@ -226,4 +242,9 @@ glm::vec3 Terrain::computeCFD(int row, int col) {
 		255.0f,
 		(getHeight(row - 1, col) - getHeight(row + 1, col)) / 2.0f);
 	return normal;
+}
+
+glm::vec3 Terrain::removeY(glm::vec3 vec) {
+	vec.y = 0;
+	return vec;
 }

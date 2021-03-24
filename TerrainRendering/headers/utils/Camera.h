@@ -14,7 +14,12 @@
 class Camera {
 
 public: 
-	Camera();
+	Camera(glm::vec3 initPos = glm::vec3(0.0f), float initAngleSpeed = 20.0f, float initPosSpeed = 0.0f) :
+		position_(initPos), angleChangeSpeed(initAngleSpeed), positionChangeSpeed(initPosSpeed) {
+		// start with no rotation to the camera
+		pitch_ = yaw_ = roll_ = 0.0f;
+		updateCamera();
+	}
 
 	glm::mat4 getViewMatrix();
 
@@ -38,6 +43,9 @@ public:
 	float	  roll_;
 	float	  yaw_;
 
+	// the camera angle change speed
+	float angleChangeSpeed;
+	float positionChangeSpeed;
 };
 
 

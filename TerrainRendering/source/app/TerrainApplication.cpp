@@ -93,11 +93,14 @@ void TerrainApplication::initVulkan() {
     // STEP 4: Create the application's data (models, textures...)
     //
 
-    airplane.createAirplane(&vkSetup, renderCommandPool, glm::vec3(0.0f, 255.0f, -255.0f));
+    airplane.createAirplane(&vkSetup, renderCommandPool, glm::vec3(0.0f, 255.0f, 0.0f));
 
     terrain.createTerrain(&vkSetup, renderCommandPool);
 
-    createTerrainVertexBuffer();
+    // set the debug camera
+    debugCamera = Camera(glm::vec3(0.0f, 100.0f, 0.0f), 50.0f, 50.0f);
+
+    //createTerrainVertexBuffer();
     createAirplaneVertexBuffer();
 
     createTerrainIndexBuffer();
@@ -120,6 +123,7 @@ void TerrainApplication::initVulkan() {
     //
     // STEP 6: setup synchronisation
     //
+
     createSyncObjects();
 }
 
@@ -424,7 +428,14 @@ void TerrainApplication::createUniformBuffers() {
 }
 
 void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
-    glm::mat4 view = airplane.camera_.getViewMatrix();
+    glm::mat4 view;
+
+    if (debugCameraState) {
+        view = debugCamera.getViewMatrix();
+    }
+    else {
+        view = airplane.camera_.getViewMatrix();
+    }
 
     // project the scene with a 45° fov, use current swap chain extent to compute aspect ratio, near, far
     glm::mat4 proj = glm::perspective(glm::radians(45.0f), swapChainData.extent.width / (float)swapChainData.extent.height, 0.1f, 1000.0f);
@@ -435,7 +446,7 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
     UniformBufferObject terrainUbo{};
 
     // translate the model to start in view of the camera
-    terrainUbo.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 250.0f));
+    terrainUbo.model = glm::mat4(1.0f);
     // add the user translation
     terrainUbo.model = glm::translate(terrainUbo.model, glm::vec3(translateX, translateY, translateZ));
     // add zoom
@@ -463,7 +474,7 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
     airplaneUbo.model = glm::translate(glm::mat4(1.0f), airplane.camera_.position_);  // translate the plane to the camera
     airplaneUbo.model = glm::translate(airplaneUbo.model, airplane.camera_.orientation_.front * 10.0f); // translate the plane in front of the camera
     airplaneUbo.model = airplaneUbo.model * airplane.camera_.orientation_.toWorldSpaceRotation(); // rotate the plane based on the camera's orientation
-    airplaneUbo.model = glm::scale(airplaneUbo.model, glm::vec3(0.5f, 0.5f, 0.5f)); // scale the plane to an acceptable size
+    //airplaneUbo.model = glm::scale(airplaneUbo.model, glm::vec3(0.4f, 0.4f, 0.4f)); // scale the plane to an acceptable size
 
     airplaneUbo.view = view;
     
@@ -562,22 +573,40 @@ void TerrainApplication::recordGeometryCommandBuffer(size_t cmdBufferIndex) {
     // DRAW TERRAIN
     //
 
-    // bind the graphics pipeline, second param determines if the object is a graphics or compute pipeline
-    vkCmdBindPipeline(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.terrainPipeline);
-    // bind the vertex buffer, can have many vertex buffers
-    vkCmdBindVertexBuffers(renderCommandBuffers[cmdBufferIndex], 0, 1, &_bTerrainVertex.buffer, &offset);
-    // bind the index buffer, can only have a single index buffer 
-    vkCmdBindIndexBuffer(renderCommandBuffers[cmdBufferIndex], _bTerrainIndex.buffer, 0, VK_INDEX_TYPE_UINT32);
-    // bind the uniform descriptor sets
-    vkCmdBindDescriptorSets(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.terrainPipelineLayout, 0, 1, &terrainDescriptorSets[cmdBufferIndex], 0, nullptr);
+    // check if drawing on CPU or GPU
+    if (onGPU) {
+        // bind the graphics pipeline, second param determines if the object is a graphics or compute pipeline
+        vkCmdBindPipeline(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.terrainPipeline);
+        // bind the index buffer, can only have a single index buffer 
+        vkCmdBindIndexBuffer(renderCommandBuffers[cmdBufferIndex], _bTerrainIndex.buffer, 0, VK_INDEX_TYPE_UINT32);
+        // bind the uniform descriptor sets
+        vkCmdBindDescriptorSets(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.terrainPipelineLayout, 0, 1, &terrainDescriptorSets[cmdBufferIndex], 0, nullptr);
 
-    // loop over the visible chuncks and draw it
+        // loop over the visible chuncks and draw it
+        if (applyBinning) {
+            for (auto& chunk: terrain.chunks) {
+                vkCmdDrawIndexed(renderCommandBuffers[cmdBufferIndex], static_cast<uint32_t>(chunk.indices.size()), 1, chunk.chunkOffset, 0, 0);
+            }
+        }
+        else {
+            for (auto& pair : terrain.visible) {
+                auto chunk = pair.second;
+                vkCmdDrawIndexed(renderCommandBuffers[cmdBufferIndex], static_cast<uint32_t>(chunk->indices.size()), 1, chunk->chunkOffset, 0, 0);
+            }
+        }
 
-    for (auto& chunk : terrain.chunks) {
-        vkCmdDrawIndexed(renderCommandBuffers[cmdBufferIndex], chunk.indices.size(), 1, 0, chunk.chunkOffset, 0);
+    }
+    else {
+        // bind the graphics pipeline, second param determines if the object is a graphics or compute pipeline
+        vkCmdBindPipeline(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.terrainPipeline);
+        // bind the vertex buffer, can have many vertex buffers
+        vkCmdBindVertexBuffers(renderCommandBuffers[cmdBufferIndex], 0, 1, &_bTerrainVertex.buffer, &offset);
+        // bind the index buffer, can only have a single index buffer 
+        vkCmdBindIndexBuffer(renderCommandBuffers[cmdBufferIndex], _bTerrainIndex.buffer, 0, VK_INDEX_TYPE_UINT32);
+        // bind the uniform descriptor sets
+        vkCmdBindDescriptorSets(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.terrainPipelineLayout, 0, 1, &terrainDescriptorSets[cmdBufferIndex], 0, nullptr);
     }
     
-
     //
     // DRAW AIRPLANE
     //
@@ -613,7 +642,7 @@ void TerrainApplication::recordGeometryCommandBuffer(size_t cmdBufferIndex) {
 
 void TerrainApplication::createTerrainVertexBuffer() {
     // precompute buffer size
-    VkDeviceSize bufferSize = sizeof(float) * terrain.heights.size();
+    VkDeviceSize bufferSize = 0;// sizeof(Vertex)* terrain.vertices.size();
 
     // a staging buffer for mapping and copying 
     BufferData stagingBuffer;
@@ -631,7 +660,7 @@ void TerrainApplication::createTerrainVertexBuffer() {
     // map then copy in memory
     void* data;
     vkMapMemory(vkSetup.device, stagingBuffer.memory, 0, bufferSize, 0, &data);
-    memcpy(data, terrain.heights.data(), (size_t)bufferSize);
+    memcpy(data, terrain.vertices.data(), (size_t)bufferSize);
     vkUnmapMemory(vkSetup.device, stagingBuffer.memory); // unmap the memory 
 
     // reuse the creation struct
@@ -905,7 +934,7 @@ void TerrainApplication::mainLoop() {
         // draw the frame
         drawFrame();
         // update the plane's position
-        airplane.updatePosition(deltaTime);
+        airplane.updatePosition(0.0f);
     }
     vkDeviceWaitIdle(vkSetup.device);
 }
@@ -959,14 +988,14 @@ void TerrainApplication::drawFrame() {
     updateUniformBuffer(imageIndex);
 
     // get the chunks to draw
-    terrain.updateVisibleChunks(airplane.camera_);
+    terrain.updateVisibleChunks(airplane.camera_, tolerance);
 
     // record the geometry command buffer with the new indices
     recordGeometryCommandBuffer(imageIndex);
 
     // update the UI, may change at every frame so this is where it is recorded, unlike the geometry which executes the same commands 
     // hence it is recorded once at the start 
-    renderUI();
+    setGUI();
 
     // the two command buffers, for geometry and UI
     std::array<VkCommandBuffer, 2> submitCommandBuffers = { renderCommandBuffers[imageIndex], imGuiCommandBuffers[imageIndex] };
@@ -1032,7 +1061,7 @@ void TerrainApplication::drawFrame() {
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void TerrainApplication::renderUI() {
+void TerrainApplication::setGUI() {
     // Start the Dear ImGui frame
     ImGui_ImplVulkan_NewFrame(); // empty
     ImGui_ImplGlfw_NewFrame();
@@ -1052,6 +1081,9 @@ void TerrainApplication::renderUI() {
     ImGui::SliderFloat("z", &rotateZ, -180.0f, 180.0f);
     ImGui::SliderFloat("Scale:", &scale, 0.0f, 1.0f);
     ImGui::SliderFloat("Vertex stride:", &vertexStride, 1.0f, 20.0f);
+    ImGui::SliderFloat("Angle tolerance:", &tolerance, 0.0f, 1.0f);
+    ImGui::Checkbox("Debug camera:", &debugCameraState);
+    ImGui::Checkbox("Draw all terrain:", &applyBinning);
     ImGui::End();
 
     // tell ImGui to render
@@ -1088,18 +1120,57 @@ int TerrainApplication::processKeyInput() {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE))
         return 0;
 
-    if (glfwGetKey(window, GLFW_KEY_W))
-        airplane.camera_.processInput(CameraMovement::PitchUp, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_S))
+    // debug camera on 
+    if (debugCameraState) {
+        if (glfwGetKey(window, GLFW_KEY_W))
+            debugCamera.processInput(CameraMovement::PitchUp, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_S))
+            debugCamera.processInput(CameraMovement::PitchDown, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_A))
+            debugCamera.processInput(CameraMovement::RollLeft, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_D))
+            debugCamera.processInput(CameraMovement::RollRight, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_Q))
+            debugCamera.processInput(CameraMovement::YawLeft, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_E))
+            debugCamera.processInput(CameraMovement::YawRight, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_LEFT))
+            debugCamera.processInput(CameraMovement::Left, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_RIGHT))
+            debugCamera.processInput(CameraMovement::Right, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT)) {
+            if (glfwGetKey(window, GLFW_KEY_UP))
+                debugCamera.processInput(CameraMovement::Upward, deltaTime);
+            if (glfwGetKey(window, GLFW_KEY_DOWN))
+                debugCamera.processInput(CameraMovement::Downward, deltaTime);
+        }
+        else {
+            if (glfwGetKey(window, GLFW_KEY_UP))
+                debugCamera.processInput(CameraMovement::Forward, deltaTime);
+            if (glfwGetKey(window, GLFW_KEY_DOWN))
+                debugCamera.processInput(CameraMovement::Backward, deltaTime);
+        }
+
+
+        // fake input to rotate the plane 
         airplane.camera_.processInput(CameraMovement::PitchDown, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_A))
-        airplane.camera_.processInput(CameraMovement::RollLeft, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_D))
-        airplane.camera_.processInput(CameraMovement::RollRight, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_Q))
-        airplane.camera_.processInput(CameraMovement::YawLeft, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_E))
-        airplane.camera_.processInput(CameraMovement::YawRight, deltaTime);
+    }
+    // airplane camera is on
+    else {
+        if (glfwGetKey(window, GLFW_KEY_W))
+            airplane.camera_.processInput(CameraMovement::PitchUp, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_S))
+            airplane.camera_.processInput(CameraMovement::PitchDown, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_A))
+            airplane.camera_.processInput(CameraMovement::RollLeft, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_D))
+            airplane.camera_.processInput(CameraMovement::RollRight, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_Q))
+            airplane.camera_.processInput(CameraMovement::YawLeft, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_E))
+            airplane.camera_.processInput(CameraMovement::YawRight, deltaTime);
+    }
+
 
     // other wise just return true
     return 1;
