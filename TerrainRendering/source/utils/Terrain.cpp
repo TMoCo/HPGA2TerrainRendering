@@ -10,7 +10,7 @@
 
 void Terrain::createTerrain(VulkanSetup* pVkSetup, const VkCommandPool& commandPool) {
 	// load the texture as a grayscale
-	heightMap.createTexture(pVkSetup, TERRAIN_HEIGHTS_PATHS[1], commandPool, VK_FORMAT_R8G8B8A8_SRGB);
+	heightMap.createTexture(pVkSetup, TERRAIN_HEIGHTS_PATHS[0], commandPool, VK_FORMAT_R8G8B8A8_SRGB);
 	hSize = heightMap.width < heightMap.height ? heightMap.width : heightMap.height;
 	heights.resize(hSize * hSize); // resize vector just in case
 
