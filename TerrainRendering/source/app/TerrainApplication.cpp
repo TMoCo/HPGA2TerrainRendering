@@ -95,12 +95,13 @@ void TerrainApplication::initVulkan() {
 
     airplane.createAirplane(&vkSetup, renderCommandPool, glm::vec3(0.0f, 255.0f, 0.0f));
 
-    terrain.createTerrain(&vkSetup, renderCommandPool);
+    terrain.createTerrain(&vkSetup, renderCommandPool, selectedMap);
+    numMaps = sizeof(TERRAIN_HEIGHTS_PATHS) / sizeof(std::string);
 
     // set the debug camera
     debugCamera = Camera(glm::vec3(0.0f, 100.0f, 0.0f), 50.0f, 50.0f);
 
-    createVertexBuffer(&terrain.vertices, &bTerrainVertex);
+    createVertexBuffer<Vertex>(&terrain.vertices, &bTerrainVertex);
     createVertexBuffer(&airplane.model.vertices, &bAirplaneVertex);
 
     createIndexBuffer(&terrain.indices, &bTerrainIndex);
@@ -433,9 +434,11 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
 
     if (debugCameraState) {
         view = debugCamera.getViewMatrix();
+        viewDir = glm::to_string(debugCamera.getOrientation().front);
     }
     else {
         view = airplane.camera.getViewMatrix();
+        viewDir = glm::to_string(airplane.camera.getOrientation().front);
     }
 
     // project the scene with a 45° fov, use current swap chain extent to compute aspect ratio, near, far
@@ -461,6 +464,9 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
     terrainUbo.proj = proj;
 
     terrainUbo.vertexStride = vertexStride;
+    terrainUbo.heightScalar = heightScalar;
+    terrainUbo.mapDim = terrain.heightMap.height; // assumes same height and width
+    terrainUbo.invMapDim = 1.0f / (terrainUbo.mapDim == 0 ? 1.0f : terrainUbo.mapDim);
 
 
     // copy the uniform buffer object into the uniform buffer
@@ -580,7 +586,7 @@ void TerrainApplication::recordGeometryCommandBuffer(size_t cmdBufferIndex) {
         // bind the uniform descriptor sets
         vkCmdBindDescriptorSets(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.terrainPipelineLayout, 0, 1, &terrainDescriptorSets[cmdBufferIndex], 0, nullptr);
 
-        if (applyBinning) {
+        if (!applyBinning) {
             // simply draw all terrain chunks
             for (auto& chunk: terrain.chunks) {
                 vkCmdDrawIndexed(renderCommandBuffers[cmdBufferIndex], static_cast<uint32_t>(chunk.indices.size()), 1, chunk.chunkOffset, 0, 0);
@@ -834,6 +840,7 @@ void TerrainApplication::mainLoop() {
         // process user input, returns 0 when we want to exit the application
         if (processKeyInput() == 0)
             break;
+    
         // draw the frame
         drawFrame();
         // update the plane's position
@@ -859,7 +866,7 @@ void TerrainApplication::drawFrame() {
     // semaphores are for syncing ops within or across cmd queues. We want to sync queue op to draw cmds and presentation so pref semaphores here
 
     // at the start of the frame, make sure that the previous frame has finished which will signal the fence
-    //vkWaitForFences(vkSetup.device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+    vkWaitForFences(vkSetup.device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
     // retrieve an image from the swap chain
     // swap chain is an extension so use the vk*KHR function
@@ -884,6 +891,7 @@ void TerrainApplication::drawFrame() {
     if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
         vkWaitForFences(vkSetup.device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
     }
+
     // Mark the image as now being in use by this frame
     imagesInFlight[imageIndex] = inFlightFences[currentFrame];
 
@@ -971,22 +979,48 @@ void TerrainApplication::setGUI() {
     ImGui::NewFrame();
 
     // for now just display the demo window
-    //ImGui::ShowDemoWindow();
+    ImGui::ShowDemoWindow();
 
-    ImGui::Begin("Terrain Options");
-    ImGui::Text("Translation:");
-    ImGui::SliderFloat("x ", &translateX, -500.0f, 500.0f);
-    ImGui::SliderFloat("y ", &translateY, -500.0f, 500.0f);
-    ImGui::SliderFloat("z ", &translateZ, -500.0f, 500.0f);
-    ImGui::Text("Rotation:");
-    ImGui::SliderFloat("x", &rotateX, -180.0f, 180.0f);
-    ImGui::SliderFloat("y", &rotateY, -180.0f, 180.0f);
-    ImGui::SliderFloat("z", &rotateZ, -180.0f, 180.0f);
+    ImGui::Begin("Terrain Options", nullptr, ImGuiWindowFlags_NoMove);
+    ImGui::BulletText("Transforms:");
+    ImGui::SliderFloat("x", &translateX, -500.0f, 500.0f);
+    ImGui::SliderFloat("y", &translateY, -500.0f, 500.0f);
+    ImGui::SliderFloat("z", &translateZ, -500.0f, 500.0f);
+    ImGui::SliderFloat("x rot", &rotateX, -180.0f, 180.0f);
+    ImGui::SliderFloat("y rot", &rotateY, -180.0f, 180.0f);
+    ImGui::SliderFloat("z rot", &rotateZ, -180.0f, 180.0f);
     ImGui::SliderFloat("Scale:", &scale, 0.0f, 1.0f);
+    ImGui::BulletText("Terrain:");
     ImGui::SliderFloat("Vertex stride:", &vertexStride, 1.0f, 20.0f);
     ImGui::SliderFloat("Angle tolerance:", &tolerance, 0.0f, 1.0f);
+    ImGui::SliderFloat("Height scalar:", &heightScalar, 0.0f, 255.0f);
     ImGui::Checkbox("Debug camera:", &debugCameraState);
     ImGui::Checkbox("Draw all terrain:", &applyBinning);
+    ImGui::Text("Select map to load:");
+    //for (int i = 0; i < numMaps; i++) {
+    //    char buf[16];
+    //    sprintf_s(buf, "Map %i", i);
+    //    if (ImGui::Selectable(buf, selectedMap == i))
+    //        selectedMap = i;
+    //}
+    //shouldLoadNewMap = ImGui::Button("Load map", ImVec2(100.0f, 20.0f));
+    ImGui::BulletText("Info:");
+    ImGui::Text("View direction:");
+    ImGui::SameLine();
+    ImGui::Text(viewDir.c_str());
+    char buf[32]; // buffer for outputting info
+    ImGui::Text("Vertices total: ");
+    sprintf_s(buf, "%i", terrain.getNumVertices());
+    ImGui::SameLine();
+    ImGui::Text(buf);
+    ImGui::Text("Polygons total: ");
+    sprintf_s(buf, "%i", terrain.getNumPolygons());
+    ImGui::SameLine();
+    ImGui::Text(buf);
+    ImGui::Text("Polygons drawn: ");
+    sprintf_s(buf, "%i", terrain.getNumDrawnPolygons());
+    ImGui::SameLine();
+    ImGui::Text(buf);
     ImGui::End();
 
     // tell ImGui to render

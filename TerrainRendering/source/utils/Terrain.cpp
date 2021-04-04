@@ -8,9 +8,9 @@
 #include <utils/Terrain.h>
 #include <glm/gtx/string_cast.hpp>
 
-void Terrain::createTerrain(VulkanSetup* pVkSetup, const VkCommandPool& commandPool) {
+void Terrain::createTerrain(VulkanSetup* pVkSetup, const VkCommandPool& commandPool, uint32_t mapId) {
 	// load the texture as a grayscale
-	heightMap.createTexture(pVkSetup, TERRAIN_HEIGHTS_PATHS[0], commandPool, VK_FORMAT_R8G8B8A8_SRGB);
+	heightMap.createTexture(pVkSetup, TERRAIN_HEIGHTS_PATHS[mapId], commandPool, VK_FORMAT_R8_SRGB);
 	hSize = heightMap.width < heightMap.height ? heightMap.width : heightMap.height;
 	heights.resize(hSize * hSize); // resize vector just in case
 
@@ -42,6 +42,18 @@ void Terrain::updateVisibleChunks(const Camera& cam, float tolerance, float vert
 	}
 }
 
+int Terrain::getNumVertices() {
+	return hSize * hSize;
+}
+
+int Terrain::getNumPolygons() {
+	return hSize * hSize * 6;
+}
+
+int Terrain::getNumDrawnPolygons() {
+	return hSize * hSize * 6;
+}
+
 void Terrain::generateTerrainMesh() {
 	if (heights.empty()) {
 		throw std::runtime_error("No heights loaded, could not generate terrain!");
@@ -56,7 +68,7 @@ void Terrain::generateTerrainMesh() {
 	indices.resize(iSize * iSize * 6);
 
 	// create the vertices, the first one is in the -z -x position, we use the index size to centre the plane
-	glm::vec3 startPos(vSize / -2.0f, 0.0f, vSize / -2.0f);
+	glm::vec3 startPos(vSize * -0.5f, 0.0f, vSize * -0.5f);
 
 	for (int row = 0; row < vSize; row++) {
 		for (int col = 0; col < vSize; col++) {
@@ -83,6 +95,8 @@ void Terrain::generateChunks() {
 	// for a given grid cell index. Before that, we need to divide the terrain into a grid of chunks. The simplest solution is 
 	// to divide the grid evenly. If the grid cannot be divided evenly, then the chunks in the last row and column will have a smaller number 
 	// of indices.
+	chunks.clear();
+
 	int iSize = hSize - 1; // hsize should always be greater than 1
 
 	// if the cells are not divisible by num chunks, add one to chunk size where remainders are accumulated
@@ -105,7 +119,7 @@ void Terrain::generateChunks() {
 	}
 
 	float chunkWidth = hSize / static_cast<float>(numChunks);		 // width of a chunk in vertex units
-	glm::vec3 startPos((-static_cast<float>(hSize) + chunkWidth) / 2.0f, 0.0f, (-static_cast<float>(hSize) + chunkWidth) / 2.0f); // initial centre point
+	glm::vec3 startPos((-static_cast<float>(hSize) + chunkWidth) * 0.5f, 0.0f, (-static_cast<float>(hSize) + chunkWidth) * 0.5f); // initial centre point
 	
 	uint32_t offset = 0;
 	// each chunk now has its vertices, we can determine its offset and centrePoint
@@ -171,8 +185,8 @@ std::vector<uint32_t> Terrain::getIndicesCell(int row, int col) {
 
 int Terrain::getChunkIndexFromCellIndex(int row, int col) {
 	// the inputs, row and col of a grid cell, are normalised to determine which chunk they are in 
-	return static_cast<int>(row / static_cast<float>(hSize - 1) * numChunks) * numChunks // chunk row
-			+ static_cast<int>(col / static_cast<float>(hSize - 1) * numChunks);		 // chunk col
+	return (int)(row / (float)(hSize - 1) * numChunks) * numChunks // chunk row
+			+ (int)(col / (float)(hSize - 1) * numChunks);		 // chunk col
 }
 
 void Terrain::loadHeights(const std::string& path) {
@@ -236,8 +250,8 @@ Chunk* Terrain::getChunk(int row, int col) {
 glm::vec3 Terrain::computeCFD(int row, int col) {
 	// get the neighbouring vertices' x and z average around the desired vertex
 	glm::vec3 normal(
-		(getHeight(row, col - 1) - getHeight(row, col + 1)) / 2.0f,
-		255.0f,
-		(getHeight(row - 1, col) - getHeight(row + 1, col)) / 2.0f);
+		(getHeight(row, col - 1) - getHeight(row, col + 1)) * 0.5f * 255.0f,
+		1.0f,
+		(getHeight(row - 1, col) - getHeight(row + 1, col)) * 0.5f * 255.0f);
 	return normal;
 }

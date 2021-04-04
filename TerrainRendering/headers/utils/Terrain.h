@@ -22,11 +22,17 @@ public:
 
 	Terrain() : numChunks(20), hSize(0) {}
 
-	void createTerrain(VulkanSetup* pVkSetup, const VkCommandPool& commandPool);
+	void createTerrain(VulkanSetup* pVkSetup, const VkCommandPool& commandPool, uint32_t mapId);
 	
 	void destroyTerrain();
 
 	void updateVisibleChunks(const Camera& cam, float tolerance, float vertexStride = 1.0f, float aspectRatio = 1.0f);
+
+	int getNumVertices();
+
+	int getNumPolygons();
+
+	int getNumDrawnPolygons();
 
 private:
 	// load a terrain model from a greyscale ppm file 

@@ -36,6 +36,13 @@
 // Helper structs
 //
 
+struct UBO {
+    // matrices for scene rendering
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
+
 // a struct containing uniforms
 struct UniformBufferObject {
     // matrices for scene rendering
@@ -43,12 +50,18 @@ struct UniformBufferObject {
     glm::mat4 view;
     glm::mat4 proj;
     // light data
-    glm::vec3 lightPos;
+    glm::vec4 lightPos;
     // changes to the terrain
     float vertexStride;
+    float heightScalar;
+    int mapDim;
+    float invMapDim;
     alignas(16) int numChunks;
 };
 
+struct AirplaneUBO : UBO {
+    
+};
 
 //
 // The application
@@ -208,15 +221,21 @@ private:
 
     float vertexStride = 1.0f;
     float tolerance    = 0.5f;
+    float heightScalar = 255.0f;
 
     int numChunks = 10;
 
     bool debugCameraState   = false; // on or off
-    bool applyBinning       = false;
+    bool applyBinning       = true;
     bool shouldExit         = false;
+    bool shouldLoadNewMap   = false;
     bool framebufferResized = false;
     bool onGPU              = true;
 
+    int selectedMap = 2;
+    int numMaps     = 0;
+    
+    std::string viewDir;
 
     // timer
     std::chrono::steady_clock::time_point prevTime;

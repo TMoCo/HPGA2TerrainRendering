@@ -10,10 +10,6 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 model;
     mat4 view;
     mat4 proj;
-    int uvToRgb;
-    int hasAmbient;
-    int hasDiffuse;
-    int hasSpecular;
 } ubo;
 
 layout(binding = 1) uniform sampler2D texSampler; // equivalent sampler1D and sampler3D
@@ -90,6 +86,6 @@ void main()
 
     }
     */
-    //outColor = fragMaterial;
-    outColor = vec4(fragNormal, 1.0f);
+    outColor = fragMaterial;
+    //outColor = vec4(fragNormal, 1.0f);
 }

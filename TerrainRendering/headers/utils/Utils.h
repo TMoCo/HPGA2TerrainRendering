@@ -50,10 +50,11 @@ const glm::vec3 WORLD_FRONT = glm::vec3(0.0f, 0.0f, 1.0f);
 // paths to the model and texture
 const std::string MODEL_PATH   = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\plane.obj";
 const std::string TEXTURE_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\plane.jpg";
-// path to height map for terrain
-const std::string TERRAIN_HEIGHTS_PATHS[2] = {
+// paths to height maps for terrain
+const std::string TERRAIN_HEIGHTS_PATHS[3] = {
     "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\HeightMap.png",
-    "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\JuliaHeightMap.png" };
+    "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\JuliaHeightMap.png",
+    "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\Mt_Ruapehu_Mt_Ngauruhoe.png" };
 
 //
 // constants for vulkan

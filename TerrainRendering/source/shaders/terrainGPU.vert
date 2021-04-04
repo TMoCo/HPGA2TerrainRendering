@@ -1,69 +1,78 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+//
+// Inputs from CPU
+//
+
 // the uniform buffer object
 layout(binding = 0) uniform UniformBufferObject {
     mat4 model;
     mat4 view;
     mat4 proj;
-    vec3 lightPos;
+    vec4 lightPos;
     float vertexStride;
+    float heightScalar;
+    int mapDim;
+    float invMapDim;
 } ubo;
 
 // height from a texture
 layout(binding = 1) uniform sampler2D heightSampler;
 
-// the shader output, goes to the next stage in the pipeline (for our pipeline goes to the fragment stage)
+//
+// Outputs to next shader stage
+// 
+
+// for our pipeline goes to the fragment stage
 layout(location = 0) out vec3 fragPos;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec4 fragMaterial;
 layout(location = 3) out vec2 fragTexCoord;
 
-// for now keep image dimension as a constant in the shader
-const int mapDim = 500;
+
+//
+// Shader
+//
 
 vec2 getTexCoord(int row, int col) {
-    return vec2(col / float(mapDim), row / float(mapDim));
+    return vec2(col * ubo.invMapDim, row * ubo.invMapDim);
 }
 
 vec3 getPosition(int row, int col) {
     return vec3(
-        (col - (mapDim / 2.0f)) * ubo.vertexStride, 
-        texture(heightSampler, getTexCoord(row, col)).r * 255, 
-        (row - (mapDim / 2.0f)) * ubo.vertexStride);
+        (col - (ubo.mapDim * 0.5f)) * ubo.vertexStride, 
+        texture(heightSampler, getTexCoord(row, col)).r * ubo.heightScalar, 
+        (row - (ubo.mapDim * 0.5f)) * ubo.vertexStride);
 }
 
 // main function, entry point to the shader
 void main() {
-    int id = gl_VertexIndex;
+    int id = gl_VertexIndex ;
 
     // get the row and column the vertex belongs to
-    int row = id / mapDim;
-    int col = id % mapDim;
+    int row = id / ubo.mapDim;
+    int col = id % ubo.mapDim;
 
-    // compute the texture coordinates of the vertex
-    fragTexCoord = getTexCoord(row, col); // divide by grid dimension to get value from 0 to 1 
+    // 1- compute the texture coordinates of the vertex
+    fragTexCoord = getTexCoord(row, col);
 
-    // compute the position from the vertex row and column in grid
+    // 2- compute the position from the vertex row and column in grid
     vec4 pos = ubo.proj * ubo.view * ubo.model * vec4(getPosition(row, col), 1.0f);
     gl_Position = pos;
     fragPos = pos.xyz;
 
-    // get the positions of neighbouring vertices
-    vec3 a = getPosition(row, col + 1); //  x neigbhour
-    vec3 b = getPosition(row, col - 1); // -x neigbhour
-    vec3 c = getPosition(row + 1, col); //  z neigbhour
-    vec3 d = getPosition(row - 1, col); // -z neigbhour
+    // get the height values of neighbouring vertices
+    float a = texture(heightSampler, getTexCoord(row - 1, col)).r; //  x neighbour (right)
+    float b = texture(heightSampler, getTexCoord(row + 1, col)).r; // -x neighbour (left)
+    float c = texture(heightSampler, getTexCoord(row, col - 1)).r; //  z neighbour (top)
+    float d = texture(heightSampler, getTexCoord(row, col + 1)).r; // -z neighbour (bottom)
+    // 3- compute central finite difference, taking into account the terrain scalars
+    vec3 normal = normalize(vec3( 
+    0.5f * (a - b) * ubo.heightScalar,   // x
+    1.0f * ubo.vertexStride,             // y
+    0.5f * (c - d) * ubo.heightScalar)); // z
 
-    vec3 k = (a + b) / 2.0f - pos.xyz;
-    //k.y = abs(k.y); // keep y positive
-    vec3 l = (c + d) / 2.0f - pos.xyz;
-    //l.y = abs(l.y); 
-
-    vec4 normal =  ubo.model * vec4(((k + l) / 2.0f), 1.0f);
-
-    //fragNormal = vec3(0.0f, 1.0f, 0.0f); // point upwards for now
-
-    //fragMaterial = vec4(texture(heightSampler, fragTexCoord).rgb, 1.0f) ;
-    fragMaterial = vec4(normal.xyz, 1.0f) ;
+    fragMaterial = vec4(normal, 1.0f) ;
+    //fragMaterial = texture(heightSampler, fragTexCoord).rgba;
 }

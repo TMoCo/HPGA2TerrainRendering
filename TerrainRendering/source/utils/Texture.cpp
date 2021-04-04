@@ -50,15 +50,19 @@ void Texture::createTextureImage(const std::string& path, const VkCommandPool& c
         // GRAY
     case VK_FORMAT_R8_SRGB:
         stbiFormat = 1;
+        break;
         // GRAY ALPHA
     case VK_FORMAT_R8G8_SRGB:
         stbiFormat = 2;
+        break;
         // RGB
     case VK_FORMAT_R8G8B8_SRGB:
         stbiFormat = 3;
+        break;
         // RGB ALPHA
     case VK_FORMAT_R8G8B8A8_SRGB:
         stbiFormat = 4;
+        break;
     default:
         break;
     }
