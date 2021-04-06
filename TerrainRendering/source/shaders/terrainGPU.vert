@@ -7,8 +7,7 @@
 
 // the uniform buffer object
 layout(binding = 0) uniform UniformBufferObject {
-    mat4 model;
-    mat4 view;
+    mat4 modelView;
     mat4 proj;
     vec4 lightPos;
     float vertexStride;
@@ -29,7 +28,6 @@ layout(location = 0) out vec3 fragPos;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec4 fragMaterial;
 layout(location = 3) out vec2 fragTexCoord;
-
 
 //
 // Shader
@@ -58,7 +56,7 @@ void main() {
     fragTexCoord = getTexCoord(row, col);
 
     // 2- compute the position from the vertex row and column in grid
-    vec4 pos = ubo.proj * ubo.view * ubo.model * vec4(getPosition(row, col), 1.0f);
+    vec4 pos = ubo.proj * ubo.modelView * vec4(getPosition(row, col), 1.0f);
     gl_Position = pos;
     fragPos = pos.xyz;
 
@@ -73,6 +71,7 @@ void main() {
     1.0f * ubo.vertexStride,             // y
     0.5f * (c - d) * ubo.heightScalar)); // z
 
-    fragMaterial = vec4(normal, 1.0f) ;
-    //fragMaterial = texture(heightSampler, fragTexCoord).rgba;
+    fragNormal = mat3(transpose(inverse(ubo.modelView))) * normal;
+
+    fragMaterial = vec4(normal, 1.0f);
 }

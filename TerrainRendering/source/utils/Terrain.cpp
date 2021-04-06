@@ -24,7 +24,7 @@ void Terrain::destroyTerrain() {
 	heightMap.cleanupTexture();
 }
 
-void Terrain::updateVisibleChunks(const Camera& cam, float tolerance, float vertexStride, float aspectRatio) {
+void Terrain::updateVisibleChunks(const Camera& cam, float tolerance, float vertexStride, glm::mat4 terrainTransform) {
 	visible.clear();
 	// loop through the chunks, get those that are currently visible
 	for (size_t i = 0; i < chunks.size(); i++) {
@@ -43,15 +43,20 @@ void Terrain::updateVisibleChunks(const Camera& cam, float tolerance, float vert
 }
 
 int Terrain::getNumVertices() {
-	return hSize * hSize;
+	return hSize * hSize; // square size of grid 
 }
 
 int Terrain::getNumPolygons() {
-	return hSize * hSize * 6;
+	return (hSize - 1) * (hSize - 1) * 2; // 2 triangles per grid cell
 }
 
 int Terrain::getNumDrawnPolygons() {
-	return hSize * hSize * 6;
+	// loop over chunks, cumulating indices size (some chunks have less indices)
+	int indexCount = 0;
+	for (auto& chunk : visible) {
+		indexCount += chunk.second->indices.size();
+	}
+	return indexCount * 0.33333333333f; // two triangles every six indices, so divide by three
 }
 
 void Terrain::generateTerrainMesh() {

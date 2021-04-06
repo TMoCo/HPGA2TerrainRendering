@@ -33,15 +33,8 @@
 #include <chrono> // time 
 
 //
-// Helper structs
+// Uniform structs
 //
-
-struct UBO {
-    // matrices for scene rendering
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 proj;
-};
 
 // a struct containing uniforms
 struct UniformBufferObject {
@@ -59,8 +52,35 @@ struct UniformBufferObject {
     alignas(16) int numChunks;
 };
 
-struct AirplaneUBO : UBO {
-    
+
+// POD for terrain uniforms
+struct TerrainUBO {
+    // matrices for scene rendering
+    //~~~~~~ 0
+    glm::mat4 modelView;
+    //~~~~~~ + 4 x 16 = 64 
+    glm::mat4 proj;
+    //~~~~~~ + 4 x 16 = 128 
+    // light data
+    glm::vec4 lightPos;
+    //~~~~~~ + 16 = 144
+    // changes to the terrain
+    float vertexStride;
+    float heightScalar;
+    int mapDim;
+    float invMapDim;
+    //~~~~~~ + 16 = 160
+    alignas(16) int numChunks; // specify 16 aligned, otherwise makes validation layer unhappy
+    //~~~~~~ + (16) 4 = 176
+};
+
+// POD for airplane uniforms
+struct AirplaneUBO {
+    // matrices for scene rendering
+    glm::mat4 modelView;
+    glm::mat4 proj;
+    // light data
+    glm::vec4 lightPos;
 };
 
 //
@@ -100,7 +120,8 @@ private:
 
     //--------------------------------------------------------------------//
 
-    void createUniformBuffers();
+    template<class T>
+    void createUniformBuffer(BufferData* bufferData);
 
     void updateUniformBuffer(uint32_t currentImage);
 
@@ -247,6 +268,72 @@ private:
     // the index of the image retrieved from the swap chain
     uint32_t imageIndex;
 };
+
+//
+// Template function definitions
+//
+
+template<class T> // maybe a vector or vertex objects, or glm::vec3...
+void TerrainApplication::createVertexBuffer(std::vector<T>* vertices, BufferData* bufferData) {
+    // precompute buffer size
+    VkDeviceSize bufferSize = sizeof(T) * vertices->size();
+
+    // a staging buffer for mapping and copying 
+    BufferData stagingBuffer;
+
+    // buffer creation struct
+    BufferCreateInfo createInfo{};
+    createInfo.size = bufferSize;
+    createInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    createInfo.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    createInfo.pBufferData = &stagingBuffer;
+
+    // in host memory (cpu)
+    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
+
+    // map then copy in memory
+    void* data;
+    vkMapMemory(vkSetup.device, stagingBuffer.memory, 0, bufferSize, 0, &data);
+    memcpy(data, vertices->data(), (size_t)bufferSize);
+    vkUnmapMemory(vkSetup.device, stagingBuffer.memory); // unmap the memory 
+
+    // reuse the creation struct
+    createInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    createInfo.pBufferData = bufferData;
+
+    // in device memory (gpu)
+    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
+
+    // the struct used by VkCmdCopyBuffer
+    VkBufferCopy copyRegion{};
+    copyRegion.size = bufferSize;
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
+
+    // buffer copy struct
+    BufferCopyInfo copyInfo{};
+    copyInfo.pSrc = &stagingBuffer.buffer;
+    copyInfo.pDst = &bufferData->buffer;
+    copyInfo.copyRegion = copyRegion;
+
+    utils::copyBuffer(&vkSetup.device, &vkSetup.graphicsQueue, renderCommandPool, &copyInfo);
+
+    // cleanup after using the staging buffer
+    stagingBuffer.cleanupBufferData(vkSetup.device);
+}
+
+template <class T>
+void TerrainApplication::createUniformBuffer(BufferData* bufferData) {
+    BufferCreateInfo createInfo{};
+    createInfo.size = static_cast<VkDeviceSize>(swapChainData.images.size() * sizeof(T));
+    createInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    createInfo.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+
+    // a large uniform buffer containing the data for each frame buffer
+    createInfo.pBufferData = bufferData;
+    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
+}
 
 #endif
 

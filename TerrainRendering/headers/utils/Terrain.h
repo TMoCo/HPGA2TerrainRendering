@@ -26,7 +26,7 @@ public:
 	
 	void destroyTerrain();
 
-	void updateVisibleChunks(const Camera& cam, float tolerance, float vertexStride = 1.0f, float aspectRatio = 1.0f);
+	void updateVisibleChunks(const Camera& cam, float tolerance, float vertexStride = 1.0f, glm::mat4 terrainTransform = glm::mat4(1.0f));
 
 	int getNumVertices();
 

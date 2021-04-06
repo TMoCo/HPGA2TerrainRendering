@@ -113,7 +113,8 @@ void TerrainApplication::initVulkan() {
     //
 
     // these depend on the size of the framebuffer, so create them after 
-    createUniformBuffers();
+    createUniformBuffer<TerrainUBO>(&bTerrainUniforms);
+    createUniformBuffer<AirplaneUBO>(&bAirplaneUniforms);
     createDescriptorPool();
     createDescriptorSets();
     createCommandBuffers(&renderCommandBuffers, renderCommandPool);
@@ -333,8 +334,8 @@ void TerrainApplication::createDescriptorSets() {
         // the buffer and the region of it that contain the data for the descriptor
         VkDescriptorBufferInfo terrainBufferInfo{};
         terrainBufferInfo.buffer = bTerrainUniforms.buffer;       // the buffer containing the uniforms 
-        terrainBufferInfo.offset = sizeof(UniformBufferObject) * i; // the offset to access uniforms for image i
-        terrainBufferInfo.range  = sizeof(UniformBufferObject);     // here the size of the buffer we want to access
+        terrainBufferInfo.offset = sizeof(TerrainUBO) * i; // the offset to access uniforms for image i
+        terrainBufferInfo.range  = sizeof(TerrainUBO);     // here the size of the buffer we want to access
 
         // bind the actual image and sampler to the descriptors in the descriptor set
         VkDescriptorImageInfo terrainImageInfo{};
@@ -368,8 +369,8 @@ void TerrainApplication::createDescriptorSets() {
         // do the same for the airplane descriptor set
         VkDescriptorBufferInfo airplaneBufferInfo{};
         airplaneBufferInfo.buffer = bAirplaneUniforms.buffer;           // the buffer containing the uniforms 
-        airplaneBufferInfo.offset = sizeof(UniformBufferObject) * i; // the offset to access uniforms for image i
-        airplaneBufferInfo.range  = sizeof(UniformBufferObject);     // here the size of the buffer we want to access
+        airplaneBufferInfo.offset = sizeof(AirplaneUBO) * i; // the offset to access uniforms for image i
+        airplaneBufferInfo.range  = sizeof(AirplaneUBO);     // here the size of the buffer we want to access
 
         // bind the actual image and sampler to the descriptors in the descriptor set
         VkDescriptorImageInfo airplaneImageInfo{};
@@ -414,21 +415,6 @@ void TerrainApplication::createDescriptorSets() {
 //
 //////////////////////
 
-void TerrainApplication::createUniformBuffers() {
-    BufferCreateInfo createInfo{};
-    createInfo.size        = static_cast<VkDeviceSize>(swapChainData.images.size() * sizeof(UniformBufferObject));
-    createInfo.usage       = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    createInfo.properties  = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-
-    // a large uniform buffer containing the data for each frame buffer
-    createInfo.pBufferData = &bTerrainUniforms;
-    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
-
-    // a second uniform buffer for the airplane's uniforms
-    createInfo.pBufferData = &bAirplaneUniforms;
-    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
-}
-
 void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
     glm::mat4 view;
 
@@ -447,19 +433,20 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
     proj[1][1] *= -1;
 
     // terrain uniform buffer object
-    UniformBufferObject terrainUbo{};
+    TerrainUBO terrainUbo{};
 
     // translate the model to start in view of the camera
-    terrainUbo.model = glm::mat4(1.0f);
+    glm::mat4 model(1.0f);
     // add the user translation
-    terrainUbo.model = glm::translate(terrainUbo.model, glm::vec3(translateX, translateY, translateZ));
+    model = glm::translate(model, glm::vec3(translateX, translateY, translateZ));
     // add zoom
-    terrainUbo.model = glm::scale(terrainUbo.model, glm::vec3(scale, scale, scale));
+    model = glm::scale(model, glm::vec3(scale, scale, scale));
     // add the x, y, z rotations
     glm::quat rotation = glm::quat(glm::vec3(glm::radians(rotateX), glm::radians(rotateY), glm::radians(rotateZ)));
-    terrainUbo.model = terrainUbo.model * glm::toMat4(rotation);
+    model = model * glm::toMat4(rotation);
 
-    terrainUbo.view = view;
+    // compute model view matrix
+    terrainUbo.modelView = view * model;
 
     terrainUbo.proj = proj;
 
@@ -476,14 +463,15 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
     vkUnmapMemory(vkSetup.device, bTerrainUniforms.memory);
 
     // airplane uniform buffer object
-    UniformBufferObject airplaneUbo{};
+    AirplaneUBO airplaneUbo{};
 
-    airplaneUbo.model = glm::translate(glm::mat4(1.0f), airplane.camera.position);  // translate the plane to the camera
-    airplaneUbo.model = glm::translate(airplaneUbo.model, airplane.camera.orientation.front * 10.0f); // translate the plane in front of the camera
-    airplaneUbo.model = airplaneUbo.model * airplane.camera.orientation.toWorldSpaceRotation(); // rotate the plane based on the camera's orientation
-    airplaneUbo.model = glm::scale(airplaneUbo.model, glm::vec3(0.4f, 0.4f, 0.4f)); // scale the plane to an acceptable size
+    // overwrite model matrix used for terrain
+    model = glm::translate(glm::mat4(1.0f), airplane.camera.position);  // translate the plane to the camera
+    model = glm::translate(model, airplane.camera.orientation.front * 10.0f); // translate the plane in front of the camera
+    model = model * airplane.camera.orientation.toWorldSpaceRotation(); // rotate the plane based on the camera's orientation
+    model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f)); // scale the plane to an acceptable size
 
-    airplaneUbo.view = view;
+    airplaneUbo.modelView = view * model;
     
     airplaneUbo.proj = proj;
 
@@ -641,56 +629,6 @@ void TerrainApplication::recordGeometryCommandBuffer(size_t cmdBufferIndex) {
 //
 //////////////////////
 
-template<class T> // maybe a vector or vertex objects, or glm::vec3...
-void TerrainApplication::createVertexBuffer(std::vector<T>* vertices, BufferData* bufferData) {
-    // precompute buffer size
-    VkDeviceSize bufferSize = sizeof(T) * vertices->size();
-
-    // a staging buffer for mapping and copying 
-    BufferData stagingBuffer;
-
-    // buffer creation struct
-    BufferCreateInfo createInfo{};
-    createInfo.size = bufferSize;
-    createInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    createInfo.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    createInfo.pBufferData = &stagingBuffer;
-
-    // in host memory (cpu)
-    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
-
-    // map then copy in memory
-    void* data;
-    vkMapMemory(vkSetup.device, stagingBuffer.memory, 0, bufferSize, 0, &data);
-    memcpy(data, vertices->data(), (size_t)bufferSize);
-    vkUnmapMemory(vkSetup.device, stagingBuffer.memory); // unmap the memory 
-
-    // reuse the creation struct
-    createInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    createInfo.pBufferData = bufferData;
-
-    // in device memory (gpu)
-    utils::createBuffer(&vkSetup.device, &vkSetup.physicalDevice, &createInfo);
-
-    // the struct used by VkCmdCopyBuffer
-    VkBufferCopy copyRegion{};
-    copyRegion.size = bufferSize;
-    copyRegion.srcOffset = 0;
-    copyRegion.dstOffset = 0;
-
-    // buffer copy struct
-    BufferCopyInfo copyInfo{};
-    copyInfo.pSrc = &stagingBuffer.buffer;
-    copyInfo.pDst = &bufferData->buffer;
-    copyInfo.copyRegion = copyRegion;
-
-    utils::copyBuffer(&vkSetup.device, &vkSetup.graphicsQueue, renderCommandPool, &copyInfo);
-
-    // cleanup after using the staging buffer
-    stagingBuffer.cleanupBufferData(vkSetup.device);
-}
-
 void TerrainApplication::createIndexBuffer(std::vector<uint32_t>* indices, BufferData* bufferData) {
     // because we generated a mesh for the terrain, we can use the indices computed
     VkDeviceSize bufferSize = sizeof(uint32_t) * indices->size();
@@ -770,7 +708,8 @@ void TerrainApplication::recreateVulkanData() {
     framebufferData.initFramebufferData(&vkSetup, &swapChainData, renderCommandPool);
 
     // recreate descriptor data
-    createUniformBuffers(); 
+    createUniformBuffer<TerrainUBO>(&bTerrainUniforms);
+    createUniformBuffer<AirplaneUBO>(&bAirplaneUniforms);
     createDescriptorSets();
 
     // recreate command buffers
@@ -997,13 +936,6 @@ void TerrainApplication::setGUI() {
     ImGui::Checkbox("Debug camera:", &debugCameraState);
     ImGui::Checkbox("Draw all terrain:", &applyBinning);
     ImGui::Text("Select map to load:");
-    //for (int i = 0; i < numMaps; i++) {
-    //    char buf[16];
-    //    sprintf_s(buf, "Map %i", i);
-    //    if (ImGui::Selectable(buf, selectedMap == i))
-    //        selectedMap = i;
-    //}
-    //shouldLoadNewMap = ImGui::Button("Load map", ImVec2(100.0f, 20.0f));
     ImGui::BulletText("Info:");
     ImGui::Text("View direction:");
     ImGui::SameLine();
