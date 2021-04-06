@@ -4,6 +4,10 @@
 
 #include <fstream>
 
+// image loading
+//#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 #include <utils/Utils.h> // MAX_LINE
 #include <utils/Terrain.h>
 #include <glm/gtx/string_cast.hpp>
@@ -12,7 +16,8 @@ void Terrain::createTerrain(VulkanSetup* pVkSetup, const VkCommandPool& commandP
 	// load the texture as a grayscale
 	heightMap.createTexture(pVkSetup, TERRAIN_HEIGHTS_PATHS[mapId], commandPool, VK_FORMAT_R8_SRGB);
 	hSize = heightMap.width < heightMap.height ? heightMap.width : heightMap.height;
-	heights.resize(hSize * hSize); // resize vector just in case
+
+	loadHeights(TERRAIN_HEIGHTS_PATHS[mapId]);
 
 	generateTerrainMesh();
 	generateChunks();
@@ -22,6 +27,7 @@ void Terrain::createTerrain(VulkanSetup* pVkSetup, const VkCommandPool& commandP
 
 void Terrain::destroyTerrain() {
 	heightMap.cleanupTexture();
+
 }
 
 void Terrain::updateVisibleChunks(const Camera& cam, float tolerance, float vertexStride, glm::mat4 terrainTransform) {
@@ -59,11 +65,25 @@ int Terrain::getNumDrawnPolygons() {
 	return indexCount * 0.33333333333f; // two triangles every six indices, so divide by three
 }
 
-void Terrain::generateTerrainMesh() {
-	if (heights.empty()) {
-		throw std::runtime_error("No heights loaded, could not generate terrain!");
-	}
+void Terrain::loadHeights(const std::string& path) {
+	// load the file 
+	int width, height, texChannels;
 
+	// forces image to be loaded in grayscale, returns ptr to first element in an array of pixels
+	stbi_uc* pixels = stbi_load(path.c_str(), &width, &height, &texChannels, 1);
+	// no pixels loaded
+	if (!pixels) {
+		throw std::runtime_error("failed to load texture image!");
+	}
+	
+	heights.resize(width * height);
+	// loop over pixels and place in heights vector
+	for (int i = 0; i < heights.size(); i++) {
+		heights[i] = (float)*(pixels + i) / 255.0f;
+	}
+}
+
+void Terrain::generateTerrainMesh() {
 	// by making the vector of vertices smaller, we can ignore the edge and corner cases heights
 	// which is tolerable as the result is negligable on large data sets and saves some code branching
 	int vSize, iSize;
@@ -75,12 +95,13 @@ void Terrain::generateTerrainMesh() {
 	// create the vertices, the first one is in the -z -x position, we use the index size to centre the plane
 	glm::vec3 startPos(vSize * -0.5f, 0.0f, vSize * -0.5f);
 	float invDim = 1.0f / heightMap.height;
+	std::cout << hSize;
 	for (int row = 0; row < vSize; row++) {
 		for (int col = 0; col < vSize; col++) {
 			// initialise empty vertex and set its position
 			Vertex vertex{};
 			vertex.pos = startPos + glm::vec3(col, getHeight(row, col), row);
-			vertex.normal = computeCFD(row, col);
+			//vertex.normal = computeCFD(row, col);
 			vertex.texCoord = glm::vec2(col * invDim, row * invDim);
 			// set the vertex in the vector directly
 			vertices[row * vSize + col] = vertex;
@@ -191,52 +212,7 @@ std::vector<uint32_t> Terrain::getIndicesCell(int row, int col) {
 int Terrain::getChunkIndexFromCellIndex(int row, int col) {
 	// the inputs, row and col of a grid cell, are normalised to determine which chunk they are in 
 	return (int)(row / (float)(hSize - 1) * numChunks) * numChunks // chunk row
-			+ (int)(col / (float)(hSize - 1) * numChunks);		 // chunk col
-}
-
-void Terrain::loadHeights(const std::string& path) {
-	// load in the ppm file
-	// !! NB: We assume the file is rectangular (n x n) and all comments have been removed !!
-	std::ifstream file(path);
-
-	// check that the stream was succesfully opened
-	if (!file.is_open()) {
-		throw std::runtime_error("failed to open file!");
-	}
-
-	// ignore the first line (ppm magic value)
-	file.ignore(MAX_SIZE, '\n');
-
-	// get the file dimensions
-	size_t vertRows, vertCols;
-	file >> vertRows;
-	file >> vertCols;
-	// check that they are legal
-	if ((vertRows <= 0) || (vertCols <= 0))
-		throw std::runtime_error("invalid image dimensions!");
-	// take the smallest of the image dimensions and use that as the size for a rectangular grid of heights
-	hSize = static_cast<int>(vertRows >= vertCols ? vertCols : vertRows);
-
-	// resize the heights vector accordingly
-	heights.resize(hSize * hSize);
-
-	// a value where we stream in unwanted values (such as the extra colour channels)
-	int ignore;
-
-	// ppm rgb range, which we don't need
-	file >> ignore;
-
-	// loop to read in the data. Gimp gave each line a single value, rather than a matrix like structure...
-	size_t n = 0;
-	while (n < heights.size()) {
-		// stream in the value
-		file >> heights[n];
-		// we also need to ignore the next two (because we have a grayscale image in rgb format)
-		file >> ignore;
-		file >> ignore;
-		// increment index
-		n++;
-	}
+			+ (int)(col / (float)(hSize - 1) * numChunks);		   // chunk col
 }
 
 float Terrain::getHeight(int row, int col) {
@@ -255,8 +231,8 @@ Chunk* Terrain::getChunk(int row, int col) {
 glm::vec3 Terrain::computeCFD(int row, int col) {
 	// get the neighbouring vertices' x and z average around the desired vertex
 	glm::vec3 normal(
-		(getHeight(row, col - 1) - getHeight(row, col + 1)) * 0.5f * 255.0f,
+		(getHeight(col, row + 1) - getHeight(col, row - 1)) * 0.5f,
 		1.0f,
-		(getHeight(row - 1, col) - getHeight(row + 1, col)) * 0.5f * 255.0f);
+		(getHeight(row, col + 1) - getHeight(row, col - 1)) * 0.5f);
 	return normal;
 }

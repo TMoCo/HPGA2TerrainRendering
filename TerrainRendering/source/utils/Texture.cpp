@@ -86,7 +86,6 @@ void Texture::createTextureImage(const std::string& path, const VkCommandPool& c
     createInfo.usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     createInfo.properties  = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
     createInfo.pBufferData = &stagingBuffer;
-    
 
     utils::createBuffer(&vkSetup->device, &vkSetup->physicalDevice, &createInfo);
 
@@ -95,9 +94,6 @@ void Texture::createTextureImage(const std::string& path, const VkCommandPool& c
     vkMapMemory(vkSetup->device, stagingBuffer.memory, 0, imageSize, 0, &data);
     memcpy(data, pixels, static_cast<size_t>(imageSize));
     vkUnmapMemory(vkSetup->device, stagingBuffer.memory);
-
-    // and cleanup pixels after copying in the data
-    stbi_image_free(pixels);
 
     // now create the image
     CreateImageData info{};

@@ -34,6 +34,8 @@ public:
     int height;
     int width;
 
+    uint32_t mipLevels;
+
     VkSampler textureSampler; // lets us sample from an image, here the texture
     
     VkDeviceMemory textureImageMemory;

@@ -45,7 +45,7 @@ private:
 
 	void sortIndicesByCell();
 
-	// load a height map (greyscale ppm image)
+	// load a height map (greyscale image)
 	void loadHeights(const std::string& path);
 
 	// returns a height at a given row and col, with offsets if specified
@@ -67,7 +67,6 @@ private:
 
 public:
 	// height data
-	std::vector<float> heights;    // the heights
 	std::vector<Chunk> chunks;	   // a vector containing the indices of the terrain that should be drawn
 
 	std::map<int, Chunk*> visible; // a map containing all currently visible chunks
@@ -75,6 +74,8 @@ public:
 	int numChunks;		           // number of chunks
 	int hSize;				       // the size of a row / column in the height map
 	Texture heightMap;			   // the height map texture
+
+	std::vector<float> heights;
 };
 
 #endif // !TERRAIN_H

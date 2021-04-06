@@ -34,14 +34,18 @@ layout(location = 2) out vec2 fragTexCoord;
 // Shader
 //
 
-vec2 getTexCoord(int row, int col) {
+vec2 getHeightCoord(int row, int col) {
     return vec2(col * ubo.invMapDim, row * ubo.invMapDim);
+}
+
+vec2 getTexCoord(int row, int col) {
+    return vec2((col-1 % 200) * 0.005f, (row-1 % 200) * 0.005f);
 }
 
 vec3 getPosition(int row, int col) {
     return vec3(
         (col - (ubo.mapDim * 0.5f)) * ubo.vertexStride, 
-        texture(heightSampler, getTexCoord(row, col)).r * ubo.heightScalar, 
+        texture(heightSampler, getHeightCoord(row, col)).r * ubo.heightScalar, 
         (row - (ubo.mapDim * 0.5f)) * ubo.vertexStride);
 }
 
@@ -59,10 +63,10 @@ void main() {
     fragPos = (ubo.model * vec4(getPosition(row, col), 1.0f)).xyz;
 
     // get the height values of neighbouring vertices
-    float a = texture(heightSampler, getTexCoord(row - 1, col)).r; //  x neighbour (right)
-    float b = texture(heightSampler, getTexCoord(row + 1, col)).r; // -x neighbour (left)
-    float c = texture(heightSampler, getTexCoord(row, col - 1)).r; //  z neighbour (top)
-    float d = texture(heightSampler, getTexCoord(row, col + 1)).r; // -z neighbour (bottom)
+    float a = texture(heightSampler, getHeightCoord(row - 1, col)).r; //  x neighbour (right)
+    float b = texture(heightSampler, getHeightCoord(row + 1, col)).r; // -x neighbour (left)
+    float c = texture(heightSampler, getHeightCoord(row, col - 1)).r; //  z neighbour (top)
+    float d = texture(heightSampler, getHeightCoord(row, col + 1)).r; // -z neighbour (bottom)
     
     // compute central finite difference, taking into account the terrain scalars
     vec3 normal = normalize(vec3( 
@@ -70,7 +74,7 @@ void main() {
     1.0f * ubo.vertexStride,             // y
     0.5f * (d - c) * ubo.heightScalar)); // z
 
-    // 2- transform normal 
+    // 2- transform normal
     fragNormal = mat3(ubo.normal) * normal;
 
     // 3- compute the texture coordinates of the vertex

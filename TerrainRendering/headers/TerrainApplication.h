@@ -161,6 +161,8 @@ private:
     Terrain  terrain;
     // the airplane object
     Airplane airplane;
+    // terrain textures
+    std::vector<Texture> textures;
 
     // for... *drumroll* debugging
     Camera debugCamera;

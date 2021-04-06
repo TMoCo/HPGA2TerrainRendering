@@ -47,14 +47,21 @@ const glm::vec3 WORLD_RIGHT = glm::vec3(1.0f, 0.0f, 0.0f);
 const glm::vec3 WORLD_UP    = glm::vec3(0.0f, 1.0f, 0.0f);
 const glm::vec3 WORLD_FRONT = glm::vec3(0.0f, 0.0f, 1.0f);
 
-// paths to the model and texture
+// paths to the plane model and texture
 const std::string MODEL_PATH   = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\plane.obj";
 const std::string TEXTURE_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\plane.jpg";
+
 // paths to height maps for terrain
 const std::string TERRAIN_HEIGHTS_PATHS[3] = {
     "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\HeightMap.png",
     "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\JuliaHeightMap.png",
     "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\Mt_Ruapehu_Mt_Ngauruhoe.png" };
+
+// paths to textures for terrain
+const std::vector<std::string> TERRAIN_TEXTURE_PATHS = {
+    "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\grass.jpg",
+    "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\rock.jpg",
+    "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A2\\HPGA2TerrainRendering\\TerrainRendering\\assets\\snow.jpg" };
 
 //
 // constants for vulkan

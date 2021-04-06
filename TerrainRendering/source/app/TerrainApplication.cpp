@@ -96,7 +96,12 @@ void TerrainApplication::initVulkan() {
     airplane.createAirplane(&vkSetup, renderCommandPool, glm::vec3(0.0f, 255.0f, 0.0f));
 
     terrain.createTerrain(&vkSetup, renderCommandPool, selectedMap);
-    numMaps = sizeof(TERRAIN_HEIGHTS_PATHS) / sizeof(std::string);
+    
+    // load terrain textures
+    textures.resize(TERRAIN_TEXTURE_PATHS.size());
+    for (int i = 0; i < textures.size(); i++) {
+        textures[i].createTexture(&vkSetup, TERRAIN_TEXTURE_PATHS[i], renderCommandPool, VK_FORMAT_R8G8B8A8_SRGB);
+    }
 
     // set the debug camera
     debugCamera = Camera(glm::vec3(0.0f, 100.0f, 0.0f), 50.0f, 50.0f);
@@ -216,15 +221,22 @@ void TerrainApplication::createDescriptorSetLayout() {
     terrainUboLayoutBinding.pImmutableSamplers = nullptr; // relevant to image sampling related descriptors
 
     // same as above but for a texture sampler rather than for uniforms
-    VkDescriptorSetLayoutBinding terrainSamplerLayoutBinding{};
-    terrainSamplerLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // this is a sampler descriptor
-    terrainSamplerLayoutBinding.binding            = 1; // the second descriptor
-    terrainSamplerLayoutBinding.descriptorCount    = 1;
-    terrainSamplerLayoutBinding.stageFlags         = VK_SHADER_STAGE_VERTEX_BIT;
-    terrainSamplerLayoutBinding.pImmutableSamplers = nullptr;
+    VkDescriptorSetLayoutBinding terrainHeightSamplerLayoutBinding{};
+    terrainHeightSamplerLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // this is a sampler descriptor
+    terrainHeightSamplerLayoutBinding.binding            = 1; // the second descriptor
+    terrainHeightSamplerLayoutBinding.descriptorCount    = 1; // height map 
+    terrainHeightSamplerLayoutBinding.stageFlags         = VK_SHADER_STAGE_VERTEX_BIT;
+    terrainHeightSamplerLayoutBinding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutBinding terrainTextureSamplerLayoutBinding{};
+    terrainTextureSamplerLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // this is a sampler descriptor
+    terrainTextureSamplerLayoutBinding.binding            = 2; // the third descriptor
+    terrainTextureSamplerLayoutBinding.descriptorCount    = 3; // textures
+    terrainTextureSamplerLayoutBinding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
+    terrainTextureSamplerLayoutBinding.pImmutableSamplers = nullptr;
 
     // put the descriptors in an array
-    std::array<VkDescriptorSetLayoutBinding, 2> terrainBindings = { terrainUboLayoutBinding, terrainSamplerLayoutBinding };
+    std::array<VkDescriptorSetLayoutBinding, 3> terrainBindings = { terrainUboLayoutBinding, terrainHeightSamplerLayoutBinding, terrainTextureSamplerLayoutBinding };
 
     VkDescriptorSetLayoutCreateInfo terrainLayoutInfo{};
     terrainLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -343,7 +355,16 @@ void TerrainApplication::createDescriptorSets() {
         terrainImageInfo.imageView   = terrain.heightMap.textureImageView;
         terrainImageInfo.sampler     = terrain.heightMap.textureSampler;
 
-        std::array<VkWriteDescriptorSet, 2> terrainDescriptorWrites{};
+        std::vector<VkDescriptorImageInfo> terrainTexturesImageInfos(textures.size());
+
+        for (uint32_t i = 0; i < textures.size(); ++i)
+        {
+            terrainTexturesImageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            terrainTexturesImageInfos[i].imageView = textures[i].textureImageView;
+            terrainTexturesImageInfos[i].sampler = textures[i].textureSampler;
+        }
+
+        std::array<VkWriteDescriptorSet, 3> terrainDescriptorWrites{};
 
         // the uniform buffer
         terrainDescriptorWrites[0].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -354,7 +375,7 @@ void TerrainApplication::createDescriptorSets() {
         terrainDescriptorWrites[0].descriptorCount  = 1; // can update multiple descriptors at once starting at dstArrayElement, descriptorCount specifies how many elements
         terrainDescriptorWrites[0].pBufferInfo      = &terrainBufferInfo;
 
-        // the texture sampler
+        // the height sampler
         terrainDescriptorWrites[1].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         terrainDescriptorWrites[1].dstSet          = terrainDescriptorSets[i];
         terrainDescriptorWrites[1].dstBinding      = 1; // texture sampler has binding 1
@@ -362,6 +383,15 @@ void TerrainApplication::createDescriptorSets() {
         terrainDescriptorWrites[1].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         terrainDescriptorWrites[1].descriptorCount = 1;
         terrainDescriptorWrites[1].pImageInfo      = &terrainImageInfo; // for image data
+
+        // the textures 
+        terrainDescriptorWrites[2].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        terrainDescriptorWrites[2].dstSet          = terrainDescriptorSets[i];
+        terrainDescriptorWrites[2].dstBinding      = 2; // texture sampler has binding 1
+        terrainDescriptorWrites[2].dstArrayElement = 0; // only one element so index 0
+        terrainDescriptorWrites[2].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        terrainDescriptorWrites[2].descriptorCount = 3;
+        terrainDescriptorWrites[2].pImageInfo      = terrainTexturesImageInfos.data(); // for image data
 
         // update according to the configuration
         vkUpdateDescriptorSets(vkSetup.device, static_cast<uint32_t>(terrainDescriptorWrites.size()), terrainDescriptorWrites.data(), 0, nullptr);
@@ -1075,6 +1105,9 @@ void TerrainApplication::cleanup() {
     // destroy the scene 
     airplane.destroyAirplane();
     terrain.destroyTerrain();
+    for (auto& texture : textures) {
+        texture.cleanupTexture();
+    }
 
     // destroy the imgui context when the program ends
     ImGui_ImplVulkan_Shutdown();
