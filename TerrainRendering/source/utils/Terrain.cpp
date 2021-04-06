@@ -74,13 +74,14 @@ void Terrain::generateTerrainMesh() {
 
 	// create the vertices, the first one is in the -z -x position, we use the index size to centre the plane
 	glm::vec3 startPos(vSize * -0.5f, 0.0f, vSize * -0.5f);
-
+	float invDim = 1.0f / heightMap.height;
 	for (int row = 0; row < vSize; row++) {
 		for (int col = 0; col < vSize; col++) {
 			// initialise empty vertex and set its position
 			Vertex vertex{};
 			vertex.pos = startPos + glm::vec3(col, getHeight(row, col), row);
 			vertex.normal = computeCFD(row, col);
+			vertex.texCoord = glm::vec2(col * invDim, row * invDim);
 			// set the vertex in the vector directly
 			vertices[row * vSize + col] = vertex;
 			centreOfGravity += vertex.pos;
@@ -168,7 +169,6 @@ void Terrain::sortIndicesByChunk() {
 		// in the chunk order, set the indices 
 		for (size_t i = 0; i < chunk.indices.size(); i++) {
 			indices[currentIndex] = chunk.indices[i];
-			vertices[indices[currentIndex]].material = glm::vec4(chunkVal) / static_cast<float>(chunks.size());
 			currentIndex++;
 		}
 		chunkVal++;

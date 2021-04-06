@@ -15,8 +15,6 @@ struct Vertex {
     glm::vec3 pos; 
     // normal
     glm::vec3 normal; 
-    // material properties
-    glm::vec4 material = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     // texture coordinate
     glm::vec2 texCoord; 
 
@@ -32,10 +30,10 @@ struct Vertex {
         return bindingDescription;
     }
 
-    static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions() {
+    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
         // we have two attributes: position and colour. The struct describes how to extract an attribute
         // from a chunk of vertex data from a binding description
-        std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions{};
+        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
         // position (vec3)
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
@@ -46,16 +44,11 @@ struct Vertex {
         attributeDescriptions[1].location = 1;
         attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
         attributeDescriptions[1].offset = offsetof(Vertex, normal);
-        // material (vec4)
+        // tex coord (vec2)
         attributeDescriptions[2].binding = 0;
         attributeDescriptions[2].location = 2;
-        attributeDescriptions[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-        attributeDescriptions[2].offset = offsetof(Vertex, material);
-        // tex coord (vec2)
-        attributeDescriptions[3].binding = 0;
-        attributeDescriptions[3].location = 3;
-        attributeDescriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[3].offset = offsetof(Vertex, texCoord);
+        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
         return attributeDescriptions;
     }
 };

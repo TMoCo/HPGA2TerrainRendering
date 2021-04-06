@@ -39,8 +39,6 @@ void Model::loadModel(const std::string& path) {
                 attrib.normals[3 * index.normal_index + 2]
             };
 
-            vertex.material = glm::vec4(0.1f, 0.5f, 0.7f, 38.0f);
-
             vertex.texCoord = {
                 attrib.texcoords[2 * index.texcoord_index + 0],
                 1.0f - attrib.texcoords[2 * index.texcoord_index + 1]

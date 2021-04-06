@@ -7,9 +7,7 @@
 
 // the uniform buffer object
 layout(binding = 0) uniform UniformBufferObject {
-    mat4 model;
-    mat4 view;
-    mat4 proj;
+    vec4 lightPos;
 } ubo;
 
 layout(binding = 1) uniform sampler2D texSampler; // equivalent sampler1D and sampler3D
@@ -20,8 +18,7 @@ layout(binding = 1) uniform sampler2D texSampler; // equivalent sampler1D and sa
 
 layout(location = 0) in vec3 fragPos;
 layout(location = 1) in vec3 fragNormal;
-layout(location = 2) in vec4 fragMaterial;
-layout(location = 3) in vec2 fragTexCoord;
+layout(location = 2) in vec2 fragTexCoord;
 
 //
 // Output
@@ -29,63 +26,45 @@ layout(location = 3) in vec2 fragTexCoord;
 
 layout(location = 0) out vec4 outColor;
 
-// light position
-// NB we assume the light is white:
-// const vec3 lightColour = vec3(1.0, 1.0, 1.0);
-const vec3 lightPos = vec3(0, -30, 50);
+// Custom materials for phong shading
 
-struct Material {
+struct mat {
+    vec3 albedo;
     vec3 ambient;
     vec3 diffuse;
     vec3 specular;
-    float specularExponent;
+    float exponent;
 };
 
-// material properties found in .mtl file
-// const Material mallard = Material(vec3(0.1f, 0.1f, 0.1f), vec3(0.5f, 0.5f, 0.5f), vec3(0.7f, 0.7f, 0.7f), 38.0f);
+mat bronze = mat (
+    vec3(0.801f, 0.49609f, 0.1953f),
+    vec3(0.19125f, 0.0735f, 0.0225f), 
+    vec3(0.7038f, 0.27048f, 0.0828f), 
+    vec3(0.256777f, 0.137622f, 0.086014f), 
+    0.1f);
 
 void main()
 {
-    /*
-    if (ubo.uvToRgb == 1) {
-        outColor = vec4(fragTexCoord, 0.0, 1.0);
-    }
-    else {
-        // the colour of the model without lighting
-        vec3 color = texture(texSampler, fragTexCoord).rgb;
-        // view direction, assumes eye is at the origin (which is the case)
-        vec3 viewDir = normalize(-fragPos);
-        // light direction from fragment to light
-        vec3 lightDir = normalize(lightPos - fragPos);
-        // reflect direction, reflection of the light direction by the fragment normal
-        vec3 reflectDir = reflect(-lightDir, fragNormal);
-
-        // ambient
-        vec3 ambient = vec3(0,0,0);
-        if (ubo.hasAmbient == 1)
-            ambient = fragMaterial.xxx;
-
-        // diffuse (lambertian)
-        vec3 diffuse = vec3(0,0,0);
-        if (ubo.hasDiffuse == 1) {
-            float diff = max(dot(lightDir, fragNormal), 0.0f);
-            diffuse = fragMaterial.yyy * diff;
-        }
-
-        // specular 
-        vec3 specular = vec3(0,0,0);
-        if (ubo.hasSpecular == 1) {
-            float spec = pow(max(dot(viewDir, reflectDir), 0.0f), fragMaterial.w);
-            specular = fragMaterial.zzz * spec;
-        }
+    // the colour of the model without lighting (
+    vec3 color = bronze.albedo; //texture(texSampler, fragTexCoord).rgb;
+    // view direction, assumes eye is at the origin (which is the case)
+    vec3 viewDir = normalize(-fragPos);
+    // light direction from fragment to light
+    vec3 lightDir = normalize(ubo.lightPos.xyz - fragPos);
+    // reflect direction, reflection of the light direction by the fragment normal
+    vec3 reflectDir = reflect(-lightDir, fragNormal);
 
 
-        // vector multiplication is element wise <3
-        outColor = vec4((ambient + diffuse + specular) * color, 1.0f);
-        //outColor = fragMaterial;
+    // diffuse (lambertian)
+    float diff = max(dot(lightDir, fragNormal), 0.0f);
+    vec3 diffuse = bronze.diffuse * diff;
 
-    }
-    */
-    outColor = fragMaterial;
+    // specular 
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0f), bronze.exponent);
+    vec3 specular = bronze.specular * spec;
+
+
+    // vector multiplication is element wise <3
+    outColor = vec4((bronze.ambient + diffuse + specular) * color, 1.0f);
     //outColor = vec4(fragNormal, 1.0f);
 }

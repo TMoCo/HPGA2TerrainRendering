@@ -416,8 +416,12 @@ void TerrainApplication::createDescriptorSets() {
 //////////////////////
 
 void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
-    glm::mat4 view;
 
+    // scene light
+    glm::vec4 lightPos{ 0.0f, 400.0f, 0.0f, 0.0f};
+
+    // view matrix depending on debug state
+    glm::mat4 view;
     if (debugCameraState) {
         view = debugCamera.getViewMatrix();
         viewDir = glm::to_string(debugCamera.getOrientation().front);
@@ -427,35 +431,36 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
         viewDir = glm::to_string(airplane.camera.getOrientation().front);
     }
 
-    // project the scene with a 45° fov, use current swap chain extent to compute aspect ratio, near, far
+    // projection matrix
     glm::mat4 proj = glm::perspective(glm::radians(45.0f), swapChainData.extent.width / (float)swapChainData.extent.height, 0.1f, 1000.0f);
     // glm designed for openGL, so y coordinates are inverted. Vulkan origin is at top left vs OpenGL at bottom left
     proj[1][1] *= -1;
+    
+    // model matrix
+    glm::mat4 model;
 
     // terrain uniform buffer object
     TerrainUBO terrainUbo{};
 
-    // translate the model to start in view of the camera
-    glm::mat4 model(1.0f);
-    // add the user translation
-    model = glm::translate(model, glm::vec3(translateX, translateY, translateZ));
-    // add zoom
+    // translation
+    model = glm::translate(glm::mat4(1.0f), glm::vec3(translateX, translateY, translateZ));
+    // uniform scale
     model = glm::scale(model, glm::vec3(scale, scale, scale));
-    // add the x, y, z rotations
-    glm::quat rotation = glm::quat(glm::vec3(glm::radians(rotateX), glm::radians(rotateY), glm::radians(rotateZ)));
-    model = model * glm::toMat4(rotation);
+    // rotation
+    model *= glm::toMat4(glm::quat(glm::vec3(glm::radians(rotateX), glm::radians(rotateY), glm::radians(rotateZ))));
 
-    // compute model view matrix
-    terrainUbo.modelView = view * model;
-
+    // set uniform buffer
+    terrainUbo.model = model;
+    terrainUbo.view = view;
     terrainUbo.proj = proj;
-
+    terrainUbo.normal = glm::transpose(glm::inverse(model));
+    terrainUbo.lightPos = lightPos;
     terrainUbo.vertexStride = vertexStride;
     terrainUbo.heightScalar = heightScalar;
     terrainUbo.mapDim = terrain.heightMap.height; // assumes same height and width
-    terrainUbo.invMapDim = 1.0f / (terrainUbo.mapDim == 0 ? 1.0f : terrainUbo.mapDim);
+    terrainUbo.invMapDim = 1.0f / (float)(terrainUbo.mapDim == 0 ? 1 : terrainUbo.mapDim);
 
-
+ 
     // copy the uniform buffer object into the uniform buffer
     void* terrainData;
     vkMapMemory(vkSetup.device, bTerrainUniforms.memory, currentImage * sizeof(terrainUbo), sizeof(terrainUbo), 0, &terrainData);
@@ -468,12 +473,14 @@ void TerrainApplication::updateUniformBuffer(uint32_t currentImage) {
     // overwrite model matrix used for terrain
     model = glm::translate(glm::mat4(1.0f), airplane.camera.position);  // translate the plane to the camera
     model = glm::translate(model, airplane.camera.orientation.front * 10.0f); // translate the plane in front of the camera
-    model = model * airplane.camera.orientation.toWorldSpaceRotation(); // rotate the plane based on the camera's orientation
+    model *= airplane.camera.orientation.toWorldSpaceRotation(); // rotate the plane based on the camera's orientation
     model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f)); // scale the plane to an acceptable size
 
-    airplaneUbo.modelView = view * model;
-    
+    airplaneUbo.model = model;
+    airplaneUbo.view = view;
     airplaneUbo.proj = proj;
+    airplaneUbo.normal = glm::transpose(glm::inverse(model));
+    airplaneUbo.lightPos = lightPos;
 
     void* airplaneData;
     vkMapMemory(vkSetup.device, bAirplaneUniforms.memory, currentImage * sizeof(airplaneUbo), sizeof(airplaneUbo), 0, &airplaneData);
@@ -598,6 +605,19 @@ void TerrainApplication::recordGeometryCommandBuffer(size_t cmdBufferIndex) {
         vkCmdBindIndexBuffer(renderCommandBuffers[cmdBufferIndex], bTerrainIndex.buffer, 0, VK_INDEX_TYPE_UINT32);
         // bind the uniform descriptor sets
         vkCmdBindDescriptorSets(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChainData.terrainPipelineLayout, 0, 1, &terrainDescriptorSets[cmdBufferIndex], 0, nullptr);
+        if (!applyBinning) {
+            // simply draw all terrain chunks
+            for (auto& chunk : terrain.chunks) {
+                vkCmdDrawIndexed(renderCommandBuffers[cmdBufferIndex], static_cast<uint32_t>(chunk.indices.size()), 1, chunk.chunkOffset, 0, 0);
+            }
+        }
+        else {
+            // loop over the visible chuncks and draw it
+            for (auto& pair : terrain.visible) {
+                auto chunk = pair.second;
+                vkCmdDrawIndexed(renderCommandBuffers[cmdBufferIndex], static_cast<uint32_t>(chunk->indices.size()), 1, chunk->chunkOffset, 0, 0);
+            }
+        }
     }
     
     //
@@ -783,7 +803,7 @@ void TerrainApplication::mainLoop() {
         // draw the frame
         drawFrame();
         // update the plane's position
-        airplane.updatePosition(0.0f);
+        airplane.updatePosition(deltaTime);
     }
     vkDeviceWaitIdle(vkSetup.device);
 }
@@ -918,7 +938,7 @@ void TerrainApplication::setGUI() {
     ImGui::NewFrame();
 
     // for now just display the demo window
-    ImGui::ShowDemoWindow();
+    //ImGui::ShowDemoWindow();
 
     ImGui::Begin("Terrain Options", nullptr, ImGuiWindowFlags_NoMove);
     ImGui::BulletText("Transforms:");
@@ -933,6 +953,7 @@ void TerrainApplication::setGUI() {
     ImGui::SliderFloat("Vertex stride:", &vertexStride, 1.0f, 20.0f);
     ImGui::SliderFloat("Angle tolerance:", &tolerance, 0.0f, 1.0f);
     ImGui::SliderFloat("Height scalar:", &heightScalar, 0.0f, 255.0f);
+    ImGui::Checkbox("On GPU:", &onGPU);
     ImGui::Checkbox("Debug camera:", &debugCameraState);
     ImGui::Checkbox("Draw all terrain:", &applyBinning);
     ImGui::Text("Select map to load:");
@@ -1022,7 +1043,7 @@ int TerrainApplication::processKeyInput() {
 
 
         // fake input to rotate the plane 
-        airplane.camera.processInput(CameraMovement::PitchDown, deltaTime);
+        // airplane.camera.processInput(CameraMovement::PitchDown, deltaTime);
     }
     // airplane camera is on
     else {
@@ -1039,7 +1060,6 @@ int TerrainApplication::processKeyInput() {
         if (glfwGetKey(window, GLFW_KEY_E))
             airplane.camera.processInput(CameraMovement::YawRight, deltaTime);
     }
-
 
     // other wise just return true
     return 1;

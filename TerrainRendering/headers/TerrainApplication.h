@@ -36,51 +36,26 @@
 // Uniform structs
 //
 
-// a struct containing uniforms
-struct UniformBufferObject {
-    // matrices for scene rendering
+// POD for terrain uniforms
+struct TerrainUBO {
+    glm::vec4 lightPos;
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 proj;
-    // light data
-    glm::vec4 lightPos;
-    // changes to the terrain
+    glm::mat4 normal;
     float vertexStride;
     float heightScalar;
     int mapDim;
     float invMapDim;
-    alignas(16) int numChunks;
-};
-
-
-// POD for terrain uniforms
-struct TerrainUBO {
-    // matrices for scene rendering
-    //~~~~~~ 0
-    glm::mat4 modelView;
-    //~~~~~~ + 4 x 16 = 64 
-    glm::mat4 proj;
-    //~~~~~~ + 4 x 16 = 128 
-    // light data
-    glm::vec4 lightPos;
-    //~~~~~~ + 16 = 144
-    // changes to the terrain
-    float vertexStride;
-    float heightScalar;
-    int mapDim;
-    float invMapDim;
-    //~~~~~~ + 16 = 160
-    alignas(16) int numChunks; // specify 16 aligned, otherwise makes validation layer unhappy
-    //~~~~~~ + (16) 4 = 176
 };
 
 // POD for airplane uniforms
 struct AirplaneUBO {
-    // matrices for scene rendering
-    glm::mat4 modelView;
-    glm::mat4 proj;
-    // light data
     glm::vec4 lightPos;
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+    glm::mat4 normal;
 };
 
 //
